@@ -1,0 +1,1370 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f5c55">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/icon-192.png"><meta name="robots" content="noindex,nofollow">
+<title>Orion Tower Manager</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&display=swap">
+<style>
+/* Layout: app shell. Left rail on PC, bottom tab bar on phone. Tower diagram on Home. */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --surface-2:#eaefed; --line:#d5dedb;
+  --fg:#16211f; --muted:#5b6a66; --accent:#0f5c55; --accent-fg:#ffffff; --brass:#a8742a;
+  --ok:#1f7a4d; --ok-bg:#dcefe4; --vac:#6b7774; --vac-bg:#e6eae9; --warn:#9a6200; --warn-bg:#f8ead0;
+  --info:#285e9e; --info-bg:#dde8f5; --own:#6a4a9c; --own-bg:#ebe3f6; --bad:#c0392b; --bad-bg:#f8dedb;
+  --display:"Sora",ui-sans-serif,system-ui,sans-serif; --body:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1514; --surface:#171f1e; --surface-2:#1f2a28; --line:#2c3a37;
+  --fg:#e5ecea; --muted:#9aa9a5; --accent:#4fb3a6; --accent-fg:#06201d; --brass:#d6a557;
+  --ok:#6fd19c; --ok-bg:#183a29; --vac:#a3b0ad; --vac-bg:#26302e; --warn:#f0b75a; --warn-bg:#3a2d14;
+  --info:#8bb8ec; --info-bg:#1b2c40; --own:#bfa2ea; --own-bg:#2c2340; --bad:#f08a7e; --bad-bg:#40201c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1514; --surface:#171f1e; --surface-2:#1f2a28; --line:#2c3a37;
+  --fg:#e5ecea; --muted:#9aa9a5; --accent:#4fb3a6; --accent-fg:#06201d; --brass:#d6a557;
+  --ok:#6fd19c; --ok-bg:#183a29; --vac:#a3b0ad; --vac-bg:#26302e; --warn:#f0b75a; --warn-bg:#3a2d14;
+  --info:#8bb8ec; --info-bg:#1b2c40; --own:#bfa2ea; --own-bg:#2c2340; --bad:#f08a7e; --bad-bg:#40201c; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;margin:0}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:1.45rem;font-weight:600}
+h2{font-size:1.1rem;font-weight:600}
+h3{font-size:.95rem;font-weight:600}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:.84rem}
+.label{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+/* shell */
+.shell{display:grid;grid-template-columns:220px 1fr;min-height:100%}
+.rail{background:var(--surface);border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 18px}
+.brand-mark{width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-family:var(--display);font-weight:700}
+.brand b{font-family:var(--display);font-size:1rem;display:block;line-height:1.1}
+.brand span{font-size:.75rem;color:var(--muted)}
+.nav-btn{display:flex;align-items:center;gap:10px;border:0;background:none;padding:10px 12px;border-radius:8px;cursor:pointer;text-align:left;color:var(--muted);font-weight:500}
+.nav-btn svg{width:20px;height:20px;flex:none}
+.nav-btn:hover{background:var(--surface-2);color:var(--fg)}
+.nav-btn[aria-current="page"]{background:var(--surface-2);color:var(--accent);font-weight:600}
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.mobile-brand{display:none}
+.search{flex:1;position:relative;max-width:560px}
+.search input{width:100%;padding:10px 12px 10px 36px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+.search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted)}
+.results{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 10px 30px rgb(0 0 0 / .15);max-height:60vh;overflow:auto;z-index:20}
+.results button{display:flex;justify-content:space-between;gap:10px;width:100%;border:0;background:none;padding:10px 14px;text-align:left;cursor:pointer;border-bottom:1px solid var(--line)}
+.results button:hover,.results button:focus{background:var(--surface-2)}
+.content{padding-block:18px 96px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px;max-width:1180px;width:100%}
+.page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+
+/* controls */
+.btn{border:1px solid var(--line);background:var(--surface);padding:9px 14px;border-radius:8px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn.sm{padding:5px 10px;font-size:.85rem}
+.btn.link{border:0;background:none;padding:4px 6px;color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface);flex-wrap:wrap}
+.seg button{border:0;background:none;padding:7px 12px;cursor:pointer;color:var(--muted);font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+
+/* cards & lists */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.stat b{font-family:var(--display);font-size:1.6rem;display:block;font-variant-numeric:tabular-nums}
+.list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.item{display:flex;align-items:center;gap:12px;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;cursor:pointer;width:100%}
+.item:last-child{border-bottom:0}
+.item:hover{background:var(--surface-2)}
+.item .grow{flex:1;min-width:0}
+.item .t{font-weight:600}
+.item .s{color:var(--muted);font-size:.85rem;overflow:hidden;text-overflow:ellipsis}
+.avatar{width:38px;height:38px;border-radius:9px;background:var(--surface-2);display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:.85rem;flex:none;color:var(--accent)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:.76rem;font-weight:600;white-space:nowrap}
+.st-Rented{background:var(--ok-bg);color:var(--ok)}
+.st-Vacant{background:var(--vac-bg);color:var(--vac)}
+.st-Reserved{background:var(--warn-bg);color:var(--warn)}
+.st-Sold{background:var(--info-bg);color:var(--info)}
+.st-Owner-occupied{background:var(--own-bg);color:var(--own)}
+.pill.norent{background:var(--surface-2);color:var(--brass)}
+.pill.closed{background:var(--vac-bg);color:var(--vac)}
+.empty{padding:22px;text-align:center;color:var(--muted)}
+.note{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:10px 12px;font-size:.88rem}
+.note.info{background:var(--info-bg);color:var(--info)}
+.note.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.dot::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.tbl{border-collapse:collapse;width:100%;font-size:.9rem}
+.tbl th,.tbl td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl th{font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.phaserow{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 36px;gap:6px;align-items:center}
+.phaserow input{padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);min-width:0;width:100%}
+.alert{display:flex;align-items:center;gap:10px;padding:10px 12px;border:0;border-radius:8px;width:100%;text-align:left;cursor:pointer;font-weight:500}
+.alert.bad{background:var(--bad-bg);color:var(--bad)}
+.alert.warn{background:var(--warn-bg);color:var(--warn)}
+.alert::before{content:"";flex:none;width:9px;height:9px;border-radius:50%;background:currentColor}
+.alerts{display:flex;flex-direction:column;gap:6px}
+.tbl tr.total td{border-top:2px solid var(--line);background:var(--surface-2)}
+.bar{height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin-top:8px}
+.bar span{display:block;height:100%;background:var(--accent);border-radius:999px}
+.splitrow{display:grid;grid-template-columns:1fr 140px 36px;gap:8px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:8px}
+.splitrow select,.splitrow input[name="sv"]{padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);min-width:0;width:100%}
+.splitrow label.given{display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:400;flex-wrap:wrap}
+.splitrow label.given input{width:auto}
+.nav-btn{position:relative}
+.nav-btn .short{display:none}
+.more-links{display:none}
+@media (max-width:900px){.nav-btn.pc-only{display:none}.more-links{display:grid}}
+@media (max-width:900px){.nav-btn .long{display:none}.nav-btn .short{display:inline}}
+.nav-btn .badge{position:absolute;top:4px;right:8px;width:9px;height:9px;border-radius:50%;background:var(--bad)}
+@media (min-width:901px){.nav-btn .badge{position:static;margin-left:auto}}
+.kv{display:grid;grid-template-columns:minmax(110px,max-content) 1fr;gap:6px 16px;font-size:.92rem}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.sec-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.acct{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.acct+.acct{margin-top:8px}
+.two>.acct+.acct{margin-top:0}
+.acct code{font-size:.85rem;overflow-wrap:anywhere}
+
+/* tower */
+.tower{display:flex;flex-direction:column;gap:6px}
+.floor{display:grid;grid-template-columns:64px 1fr;gap:8px;align-items:stretch}
+.floor-name{font-family:var(--display);font-weight:600;font-size:.85rem;display:flex;flex-direction:column;justify-content:center}
+.floor-name small{font-family:var(--body);font-weight:400;color:var(--muted);font-size:.68rem}
+.cells{display:flex;gap:4px;min-width:0}
+.cell{border:0;border-radius:6px;padding:7px 6px;min-width:0;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:1px;min-height:56px}
+.cell b{font-size:.78rem}
+.cell span{font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cell:hover{outline:2px solid var(--accent)}
+.cell.double{min-height:76px}
+.core{flex:0 0 26px;border-radius:6px;background:repeating-linear-gradient(135deg,var(--surface-2) 0 6px,var(--line) 6px 7px)}
+.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+
+/* modal */
+.scrim{position:fixed;inset:0;background:rgb(0 0 0 / .45);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:var(--surface);border-radius:14px;width:min(640px,100%);max-height:calc(100% - 20px);display:flex;flex-direction:column;box-shadow:0 20px 60px rgb(0 0 0 / .3)}
+.modal header{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.modal .body{padding:16px 18px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.modal footer{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:.85rem;font-weight:600}
+.field .hint{font-size:.78rem;color:var(--muted)}
+.field input,.field select,.field textarea{padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);width:100%}
+.field textarea{min-height:70px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);border-radius:999px;padding:5px 11px;cursor:pointer;background:var(--bg);font-size:.85rem}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.chip:disabled{opacity:.45;cursor:not-allowed}
+.sharerow select{padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.sharerow input{padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);min-width:0}
+.sharerow{display:grid;grid-template-columns:1fr 110px 36px;gap:8px;align-items:center}
+.x{border:1px solid var(--line);background:none;border-radius:8px;height:38px;cursor:pointer;color:var(--muted)}
+.err{color:var(--bad);font-size:.85rem}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;z-index:60;font-weight:500;font-size:.9rem}
+
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .rail{position:fixed;top:auto;bottom:0;left:0;right:0;height:auto;flex-direction:row;justify-content:space-around;padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));padding-left:max(4px,env(safe-area-inset-left,0px));padding-right:max(4px,env(safe-area-inset-right,0px));border-right:0;border-top:1px solid var(--line);z-index:30;gap:0}
+  .rail .brand{display:none}
+  .nav-btn{flex-direction:column;gap:2px;font-size:.64rem;padding:6px 1px;flex:1;align-items:center;text-align:center;min-width:0}
+  .nav-btn span{overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .mobile-brand{display:grid}
+  .two,.grid2{grid-template-columns:1fr}
+  .phaserow{grid-template-columns:1fr 1fr}
+  .splitrow{grid-template-columns:1fr 36px}
+  .splitrow input[name="sv"]{grid-column:1/2}
+  .phaserow [name="pl"]{grid-column:1/-1}
+  .modal{align-self:flex-end;max-height:92%}
+  .scrim{padding:0;align-items:flex-end}
+  .modal{border-radius:14px 14px 0 0;width:100%;padding-bottom:env(safe-area-inset-bottom,0px)}
+}
+@media (max-width:520px){
+  .stat b{font-size:1.2rem;white-space:nowrap}
+  .stats{grid-template-columns:1fr 1fr}
+  .floor{grid-template-columns:44px 1fr}
+  .cell span{display:none}
+  .cell{min-height:44px;padding:6px 4px}
+  .cell.double{min-height:58px}
+  .core{flex-basis:14px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style></head><body>
+
+<div class="shell">
+  <nav class="rail" id="rail" aria-label="Main">
+    <div class="brand"><div class="brand-mark">O</div><div><b>Orion Tower</b><span>Manager · Bahawalpur</span></div></div>
+  </nav>
+  <div class="main">
+    <div class="topbar">
+      <div class="brand-mark mobile-brand" aria-hidden="true">O</div>
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Search units, owners, outlets, tenants, accounts" autocomplete="off" aria-label="Search">
+        <div class="results" id="results" hidden></div>
+      </div>
+    </div>
+    <main class="content" id="view"></main>
+  </div>
+</div>
+<div id="modal-root"></div>
+
+<script>
+(()=>{
+"use strict";
+/* ---------- constants ---------- */
+const SIZES=[1153,607,661,620,607,607];
+const FLOORS=[
+  {key:"R",name:"Rooftop",short:"Roof",prefix:"R",note:"Shops 1–3, lift & stairs, 4–6"},
+  {key:"2ndF",name:"Second floor",short:"2ndF",prefix:"2ndF"},
+  {key:"F1",name:"First floor",short:"F1",prefix:"F"},
+  {key:"G",name:"Ground floor",short:"G",prefix:"G",note:"Double story, counted once"},
+  {key:"LG",name:"Lower ground",short:"LG",prefix:"LG",note:"Basement"}
+];
+const STATUSES=["Vacant","Rented","Sold","Owner-occupied","Reserved"];
+const HOLDERS={owner:"Shop owner",orion:"Orion Tower",other:"Other account"};
+const ICONS={
+  home:'<path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  units:'<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2"/>',
+  people:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.8.7 3 2.5 3.5 5.2"/>',
+  accounts:'<path d="M3 9 12 4l9 5"/><path d="M5 9v9M9.5 9v9M14.5 9v9M19 9v9M3 20h18"/>',
+  agreements:'<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h5"/>',
+  money:'<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>',
+  ops:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>',
+  reports:'<path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/>',
+  more:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'
+};
+const TABS=[["home","Home"],["units","Units"],["people","People"],["agreements","Agreements"],["money","Money"],["ops","Ops"],["reports","Reports"],["more","More"]];
+const PC_ONLY=["people","reports"];
+
+/* ---------- storage (IndexedDB, falls back to memory) ---------- */
+const Store={
+  db:null,
+  open(){return new Promise(res=>{
+    try{const r=indexedDB.open("orion-tower-manager",1);
+      r.onupgradeneeded=()=>r.result.createObjectStore("kv");
+      r.onsuccess=()=>{this.db=r.result;res()};
+      r.onerror=()=>res();
+    }catch(e){res()}
+  })},
+  get(k){return new Promise(res=>{
+    if(!this.db)return res(undefined);
+    try{const q=this.db.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>res(undefined)}catch(e){res(undefined)}
+  })},
+  set(k,v){return new Promise(res=>{
+    if(!this.db)return res(false);
+    try{const t=this.db.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=()=>res(true);t.onerror=()=>res(false)}catch(e){res(false)}
+  })}
+};
+let D=null; // all data
+let saved=true;
+const uid=p=>p+"_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const now=()=>new Date().toISOString();
+
+function seed(){
+  const units=[];
+  FLOORS.forEach(f=>{for(let i=1;i<=6;i++){
+    units.push({id:f.prefix+i,floor:f.key,no:i,size:f.key==="R"?null:SIZES[i-1],saleRate:null,rentRate:null,serviceCharges:null,status:"Vacant",noRent:false,notes:"",updatedAt:now()});
+  }});
+  const U=id=>units.find(u=>u.id===id);
+  const outlets=[];
+  const addOutlet=(name,ids,extra={})=>{outlets.push({id:uid("out"),name,unitIds:ids,active:true,business:"",phone:"",notes:"",noRent:false,updatedAt:now(),...extra});ids.forEach(i=>U(i).status="Rented")};
+  addOutlet("Equator",["G1"]);addOutlet("Koco",["G2"]);addOutlet("wedrink",["G3"]);
+  addOutlet("Haier",["G4","G5"]);addOutlet("Brio",["G6"]);
+  addOutlet("Social Spark",["F1","F2"]);addOutlet("JS Global",["F3"]);addOutlet("ENGRO",["F4","F5","F6"]);
+  addOutlet("Arif Habib",["2ndF6"]);
+  addOutlet("K6 Studio",["LG3"],{noRent:true,business:"Architectural visualization office (sister company)"});
+  U("LG3").status="Owner-occupied";U("LG3").noRent=true;U("LG3").notes="K6 Studio office. Sister company, pays no rent.";
+  return {version:2,units,owners:[],accounts:[],outlets,tenants:[],agreements:[],payments:[],lifts:[],petty:[],cleaning:[],tasks:[],docs:[],staff:[],meta:{created:now(),changes:0,trackFrom:ymOf(todayISO())}};
+}
+async function load(){
+  await Store.open();
+  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+  const d=await Store.get("data");
+  D=d&&d.units?d:seed();
+  D.agreements=D.agreements||[];D.payments=D.payments||[];for(const k of ["lifts","petty","cleaning","tasks","docs","staff"])D[k]=D[k]||[];D.meta.trackFrom=D.meta.trackFrom||ymOf(todayISO());
+  if(!d)await persist(false);
+}
+async function persist(count=true){
+  if(count)D.meta.changes=(D.meta.changes||0)+1;
+  D.meta.lastSaved=now();
+  saved=await Store.set("data",D);
+}
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pkr=n=>n==null||n===""||isNaN(n)?"—":"PKR "+Math.round(Number(n)).toLocaleString("en-PK");
+const sq=n=>n?Number(n).toLocaleString("en-PK")+" sq ft":"Size not set";
+const initials=s=>String(s||"?").split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("");
+const unit=id=>D.units.find(u=>u.id===id);
+const owner=id=>D.owners.find(o=>o.id===id);
+const outlet=id=>D.outlets.find(o=>o.id===id);
+const floorOf=k=>FLOORS.find(f=>f.key===k);
+const activeOutletOf=uid_=>D.outlets.find(o=>o.active&&o.unitIds.includes(uid_));
+const ownersOf=uid_=>D.owners.filter(o=>(o.units||[]).some(x=>x.unitId===uid_));
+const tenantsOf=oid=>D.tenants.filter(t=>(t.outletIds||[]).includes(oid));
+const acctsOfOwner=oid=>D.accounts.filter(a=>a.holder==="owner"&&a.ownerId===oid);
+const unitSort=(a,b)=>D.units.indexOf(unit(a))-D.units.indexOf(unit(b));
+const icon=n=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]}</svg>`;
+const statusPill=s=>`<span class="pill st-${esc(s)}">${esc(s)}</span>`;
+const acctLine=a=>`${esc(a.bank||"Bank")} · ${esc(a.number||"no number")}`;
+const acctHolderName=a=>a.holder==="owner"?(owner(a.ownerId)?.name||"Unknown owner"):a.holder==="orion"?"Orion Tower":(a.label||"Other account");
+function toast(msg){document.querySelectorAll(".toast").forEach(x=>x.remove());const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
+
+/* ---------- routing ---------- */
+let route={tab:"home"};
+try{const t=localStorage.getItem("otm-tab");if(t&&TABS.some(x=>x[0]===t))route.tab=t}catch(e){}
+function go(r){if(r.ptab)peopleTab=r.ptab;route=r;try{localStorage.setItem("otm-tab",r.tab)}catch(e){}render();window.scrollTo(0,0)}
+
+function renderNav(){
+  const rail=$("#rail");
+  rail.querySelectorAll(".nav-btn").forEach(b=>b.remove());
+  TABS.forEach(([k,l])=>{
+    const b=document.createElement("button");b.className="nav-btn";b.innerHTML=icon(k)+(k==="agreements"?`<span class="long">${l}</span><span class="short">Leases</span>`:`<span>${l}</span>`);
+    if(route.tab===k)b.setAttribute("aria-current","page");
+    if(PC_ONLY.includes(k))b.classList.add("pc-only");
+    if(k==="ops"&&(overdueTasks().length||liftStatus().some(x=>x.missing)))b.insertAdjacentHTML("beforeend",'<span class="badge" aria-label="needs attention"></span>');
+    if(k==="money"&&lateItems().length)b.insertAdjacentHTML("beforeend",'<span class="badge" aria-label="late payments"></span>');
+    if(k==="agreements"&&D.agreements.some(a=>renewalState(a).k==="overdue"))b.insertAdjacentHTML("beforeend",'<span class="badge" aria-label="renewal overdue"></span>');
+    b.onclick=()=>go({tab:k});rail.appendChild(b);
+  });
+}
+function render(){
+  renderNav();
+  const v=$("#view");
+  const r=route;
+  if(r.tab==="home")v.innerHTML=viewHome();
+  else if(r.tab==="units")v.innerHTML=r.id?viewUnit(r.id):viewUnits();
+  else if(r.tab==="people")v.innerHTML=r.owner?viewOwner(r.owner):r.outlet?viewOutlet(r.outlet):r.tenant?viewTenant(r.tenant):viewPeople();
+  else if(r.tab==="ops")v.innerHTML=viewOps();
+  else if(r.tab==="reports")v.innerHTML=viewReports();
+  else if(r.tab==="money")v.innerHTML=viewMoney();
+  else if(r.tab==="agreements")v.innerHTML=r.ag?viewAgreement(r.ag):viewAgreements();
+  else v.innerHTML=viewMore();
+}
+
+/* ---------- views ---------- */
+function towerHTML(){
+  return `<div class="tower">${FLOORS.map(f=>{
+    const us=D.units.filter(u=>u.floor===f.key);
+    const cell=u=>{const o=activeOutletOf(u.id);const grow=u.size||607;
+      return `<button class="cell st-${esc(u.status)} ${f.key==="G"?"double":""}" style="flex:${grow} 1 0" data-go-unit="${esc(u.id)}" title="${esc(u.id)} ${o?"· "+esc(o.name):""}"><b>${esc(u.id)}</b><span>${o?esc(o.name):esc(u.status)}</span></button>`};
+    const cells=f.key==="R"?us.slice(0,3).map(cell).join("")+`<div class="core" title="Stairs and lift"></div>`+us.slice(3).map(cell).join(""):us.map(cell).join("");
+    return `<div class="floor"><div class="floor-name">${esc(f.short)}${f.key==="G"?"<small>double</small>":""}</div><div class="cells">${cells}</div></div>`;
+  }).join("")}</div>
+  <div class="legend">${STATUSES.map(s=>statusPill(s)).join("")}</div>`;
+}
+function viewHome(){
+  const total=D.units.length;
+  const count=s=>D.units.filter(u=>u.status===s).length;
+  const area=D.units.reduce((a,u)=>a+(u.size||0),0);
+  const rentedArea=D.units.filter(u=>u.status==="Rented").reduce((a,u)=>a+(u.size||0),0);
+  const missingOwners=D.units.filter(u=>ownersOf(u.id).length===0).length;
+  const outletsNoTenant=D.outlets.filter(o=>o.active&&!o.noRent&&tenantsOf(o.id).length===0).length;
+  const outletsNoAg=D.outlets.filter(o=>o.active&&!o.noRent&&!agsOfOutlet(o.id).some(a=>a.active)).length;
+  return `<div class="page-head"><div><div class="label">Orion Tower · Bahawalpur</div><h1>Building overview</h1></div>
+    <div class="row"><button class="btn" data-act="add-owner">+ Shop owner</button><button class="btn primary" data-act="add-outlet">+ Outlet</button></div></div>
+  <div class="stats">
+    <div class="stat"><span class="label">Units</span><b>${total}</b><span class="small muted">5 floors × 6</span></div>
+    <div class="stat"><span class="label">Rented</span><b>${count("Rented")}</b><span class="small muted num">${rentedArea.toLocaleString("en-PK")} of ${area.toLocaleString("en-PK")} sq ft</span></div>
+    <div class="stat"><span class="label">Vacant</span><b>${count("Vacant")}</b><span class="small muted">ready to rent</span></div>
+    <div class="stat" data-otab-go="petty" style="cursor:pointer"><span class="label">Petty cash</span><b>${pkr(pettyBalance())}</b><span class="small muted">cash in hand</span></div>
+    <div class="stat"><span class="label">Active outlets</span><b>${D.outlets.filter(o=>o.active).length}</b><span class="small muted">${D.tenants.length} tenants on file</span></div>
+  </div>
+  ${(()=>{const al=homeAlerts();return `<section class="panel"><div class="sec-head"><h2>Needs attention</h2><span class="small muted">${al.length?al.length+" item"+(al.length===1?"":"s"):"All clear"}</span></div>
+    ${al.length?`<div class="alerts">${al.map(x=>`<button class="alert ${x.lvl}" ${x.money?`data-mtab-go="${x.money}"`:x.ops?`data-otab-go="${x.ops}"`:`data-go-ag="${x.ag}"`}>${esc(x.t)}</button>`).join("")}</div>`:'<div class="small muted">Nothing late. No renewals due in the next 30 days.</div>'}</section>`})()}
+  ${(()=>{const ym=curYM();const rows=D.agreements.filter(a=>a.active&&!outlet(a.outletId)?.noRent&&agMonths(a).includes(ym)).map(a=>dueRow(a,ym));if(!rows.length)return "";
+    const due=rows.reduce((s,r)=>s+r.rentDue+r.scDue,0),got=rows.reduce((s,r)=>s+r.rentPaid+r.scPaid+r.rentDisc+r.scDisc,0);const pct=due?Math.min(100,Math.round(got/due*100)):0;
+    return `<section class="panel"><div class="sec-head"><h2>${fmtYM(ym)} collection</h2><button class="btn sm primary" data-act="add-pay">+ Payment</button></div>
+    <div class="row num" style="justify-content:space-between"><span><b>${pkr(got)}</b> <span class="muted">covered of ${pkr(due)}</span></span><span class="muted">${pct}%</span></div>
+    <div class="bar"><span style="width:${pct}%"></span></div></section>`})()}
+  <section class="panel"><div class="sec-head"><h2>The tower</h2><span class="small muted">Tap a unit to open it</span></div>${towerHTML()}</section>
+  ${(missingOwners||outletsNoTenant||outletsNoAg)?`<section class="panel"><h2 style="margin-bottom:8px">Still to fill in</h2>
+    <div class="note info">${missingOwners?`${missingOwners} of ${total} units have no shop owner yet. `:""}${outletsNoTenant?`${outletsNoTenant} outlets have no tenant contact yet. `:""}${outletsNoAg?`${outletsNoAg} outlets have no agreement yet. `:""}Add owners and tenants in People, and agreements in Agreements.</div></section>`:""}`;
+}
+let unitFilter={floor:"all",status:"all"};
+function viewUnits(){
+  const list=D.units.filter(u=>(unitFilter.floor==="all"||u.floor===unitFilter.floor)&&(unitFilter.status==="all"||u.status===unitFilter.status));
+  return `<div class="page-head"><div><div class="label">${D.units.length} units</div><h1>Units</h1></div></div>
+  <div class="row">
+    <div class="seg" role="group" aria-label="Floor"><button aria-pressed="${unitFilter.floor==="all"}" data-uf-floor="all">All floors</button>${FLOORS.map(f=>`<button aria-pressed="${unitFilter.floor===f.key}" data-uf-floor="${f.key}">${f.short}</button>`).join("")}</div>
+    <div class="field" style="width:auto"><select id="uf-status" aria-label="Status"><option value="all">Any status</option>${STATUSES.map(s=>`<option ${unitFilter.status===s?"selected":""}>${s}</option>`).join("")}</select></div>
+  </div>
+  <div class="list">${list.map(u=>{const o=activeOutletOf(u.id);const ow=ownersOf(u.id);
+    return `<button class="item" data-go-unit="${esc(u.id)}"><div class="avatar">${esc(u.id)}</div><div class="grow"><div class="t">${o?esc(o.name):esc(floorOf(u.floor).name)+" · unit "+u.no}</div>
+      <div class="s num">${sq(u.size)} · ${ow.length?ow.map(x=>esc(x.name)).join(", "):"No owner yet"}</div></div>${u.noRent?'<span class="pill norent">No rent</span>':""}${statusPill(u.status)}</button>`}).join("")||'<div class="empty">No units match.</div>'}</div>`;
+}
+function viewUnit(id){
+  const u=unit(id);if(!u)return '<div class="empty">Unit not found.</div>';
+  const f=floorOf(u.floor);const o=activeOutletOf(u.id);const ows=ownersOf(u.id);
+  const shareSum=ows.reduce((a,x)=>a+(Number((x.units.find(y=>y.unitId===u.id)||{}).share)||0),0);
+  const past=D.outlets.filter(x=>!x.active&&x.unitIds.includes(u.id));
+  return `<div><button class="btn link" data-back="units">← All units</button></div>
+  <div class="page-head"><div><div class="label">${esc(f.name)}${f.note?" · "+esc(f.note):""}</div><h1>Unit ${esc(u.id)} ${statusPill(u.status)} ${u.noRent?'<span class="pill norent">No rent</span>':""}</h1></div>
+    <button class="btn" data-act="edit-unit" data-id="${esc(u.id)}">Edit unit</button></div>
+  <div class="two">
+    <section class="panel"><h2 style="margin-bottom:10px">Size and rates</h2><dl class="kv num">
+      <dt>Covered area</dt><dd>${sq(u.size)}</dd>
+      <dt>Sale price</dt><dd>${u.saleRate?pkr(u.saleRate):"—"}</dd>
+      <dt>Rent (asking)</dt><dd>${u.rentRate?pkr(u.rentRate)+" per month":"—"}</dd>
+      <dt>Service charges</dt><dd>${u.serviceCharges?pkr(u.serviceCharges)+" per month":"—"}</dd>
+      ${activeAgsOfUnit(u.id).map(a=>`<dt>Agreement</dt><dd><button class="btn sm" data-go-ag="${a.id}">${pkr(rentFor(a,ymOf(todayISO())))} this month</button>${a.unitIds.length>1?`<div class="small muted">Covers ${esc(a.unitIds.slice().sort(unitSort).join(" + "))}</div>`:""}</dd>`).join("")}
+      <dt>Notes</dt><dd>${esc(u.notes)||"—"}</dd></dl></section>
+    <section class="panel"><div class="sec-head"><h2>Outlet</h2>${o?`<button class="btn sm" data-go-outlet="${o.id}">Open</button>`:`<button class="btn sm" data-act="add-outlet" data-unit="${esc(u.id)}">+ Outlet</button>`}</div>
+      ${o?`<div class="t" style="font-weight:600">${esc(o.name)}</div><div class="small muted">Units ${o.unitIds.slice().sort(unitSort).map(esc).join(" + ")}</div>
+        <div style="margin-top:10px">${tenantsOf(o.id).map(t=>`<div class="small">${esc(t.name)}${t.phone?` · <span class="num">${esc(t.phone)}</span>`:""}</div>`).join("")||'<div class="small muted">No tenants added yet.</div>'}</div>`
+       :'<div class="muted small">No active outlet. This unit is free for a new tenant.</div>'}
+      ${past.length?`<div class="small muted" style="margin-top:10px">Earlier: ${past.map(x=>esc(x.name)).join(", ")}</div>`:""}
+    </section>
+  </div>
+  <section class="panel"><div class="sec-head"><h2>Shop owners</h2><button class="btn sm" data-act="add-owner" data-unit="${esc(u.id)}">+ Owner</button></div>
+    ${shareSum>100?`<div class="note" style="margin-bottom:10px">Ownership shares add up to ${shareSum}%. Check the shares, they should total 100%.</div>`:""}
+    ${ows.length?ows.map(ow=>{const sh=(ow.units.find(y=>y.unitId===u.id)||{}).share;const ac=acctsOfOwner(ow.id);
+      return `<div class="acct"><div style="min-width:0"><div style="font-weight:600">${esc(ow.name)} ${sh?`<span class="pill st-Sold">${esc(sh)}%</span>`:""}</div>
+      <div class="small muted num">${esc(ow.phone)||"No phone"}</div>
+      <div class="small" style="margin-top:4px">${ac.length?ac.map(a=>`<div>${acctLine(a)}</div>`).join(""):'<span class="muted">No bank account yet</span>'}</div></div>
+      <button class="btn sm" data-go-owner="${ow.id}">Open</button></div>`}).join(""):'<div class="muted small">No owner recorded for this unit yet.</div>'}
+  </section>`;
+}
+let peopleTab="owners";
+function viewPeople(){
+  const tabs=`<div class="seg" role="group" aria-label="Show"><button aria-pressed="${peopleTab==="owners"}" data-ptab="owners">Shop owners (${D.owners.length})</button><button aria-pressed="${peopleTab==="outlets"}" data-ptab="outlets">Outlets (${D.outlets.length})</button><button aria-pressed="${peopleTab==="tenants"}" data-ptab="tenants">Tenants (${D.tenants.length})</button><button aria-pressed="${peopleTab==="accounts"}" data-ptab="accounts">Bank accounts (${D.accounts.length})</button></div>`;
+  if(peopleTab==="accounts")return `<div class="page-head"><div><div class="label">Owners, outlets and tenants</div><h1>People</h1></div><button class="btn primary" data-act="add-account">+ Bank account</button></div>${tabs}${accountsBody()}`;
+  let body="",add="";
+  if(peopleTab==="owners"){add=`<button class="btn primary" data-act="add-owner">+ Shop owner</button>`;
+    body=D.owners.length?D.owners.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(o=>`<button class="item" data-go-owner="${o.id}"><div class="avatar">${esc(initials(o.name))}</div><div class="grow"><div class="t">${esc(o.name)}</div><div class="s">${(o.units||[]).map(x=>esc(x.unitId)+(x.share?` (${esc(x.share)}%)`:"")).join(", ")||"No units"} · ${acctsOfOwner(o.id).length} bank account(s)</div></div></button>`).join(""):'<div class="empty">No shop owners yet. Add the first one with “+ Shop owner”.</div>';}
+  else if(peopleTab==="outlets"){add=`<button class="btn primary" data-act="add-outlet">+ Outlet</button>`;
+    body=D.outlets.slice().sort((a,b)=>(b.active-a.active)||a.name.localeCompare(b.name)).map(o=>`<button class="item" data-go-outlet="${o.id}"><div class="avatar">${esc(initials(o.name))}</div><div class="grow"><div class="t">${esc(o.name)}</div><div class="s">Units ${o.unitIds.slice().sort(unitSort).map(esc).join(" + ")||"none"} · ${tenantsOf(o.id).length} tenant(s)</div></div>${o.noRent?'<span class="pill norent">No rent</span>':""}${o.active?"":'<span class="pill closed">Closed</span>'}</button>`).join("")||'<div class="empty">No outlets yet.</div>';}
+  else{add=`<button class="btn primary" data-act="add-tenant">+ Tenant</button>`;
+    body=D.tenants.length?D.tenants.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<button class="item" data-go-tenant="${t.id}"><div class="avatar">${esc(initials(t.name))}</div><div class="grow"><div class="t">${esc(t.name)}</div><div class="s">${(t.outletIds||[]).map(i=>esc(outlet(i)?.name||"?")).join(", ")||"No outlet"}${t.phone?" · "+esc(t.phone):""}</div></div></button>`).join(""):'<div class="empty">No tenants yet. A tenant is the person who takes a shop on rent for an outlet.</div>';}
+  return `<div class="page-head"><div><div class="label">Owners, outlets and tenants</div><h1>People</h1></div>${add}</div>${tabs}<div class="list">${body}</div>`;
+}
+function viewOwner(id){
+  const o=owner(id);if(!o)return '<div class="empty">Owner not found.</div>';
+  const ac=acctsOfOwner(o.id);
+  return `<div><button class="btn link" data-back="people">← People</button></div>
+  <div class="page-head"><div><div class="label">Shop owner</div><h1>${esc(o.name)}</h1></div><button class="btn" data-act="edit-owner" data-id="${o.id}">Edit</button></div>
+  <div class="two">
+    <section class="panel"><h2 style="margin-bottom:10px">Details</h2><dl class="kv num"><dt>Phone / WhatsApp</dt><dd>${esc(o.phone)||"—"}</dd><dt>CNIC</dt><dd>${esc(o.cnic)||"—"}</dd><dt>Notes</dt><dd>${esc(o.notes)||"—"}</dd></dl></section>
+    <section class="panel"><h2 style="margin-bottom:10px">Units owned</h2>${(o.units||[]).length?(o.units).map(x=>`<button class="item" style="padding:8px 0" data-go-unit="${esc(x.unitId)}"><div class="avatar">${esc(x.unitId)}</div><div class="grow"><div class="t">${esc(activeOutletOf(x.unitId)?.name||unit(x.unitId)?.status||"")}</div><div class="s">${x.share?esc(x.share)+"% share":"Share not set"}</div></div></button>`).join(""):'<div class="muted small">No units linked.</div>'}</section>
+  </div>
+  <section class="panel"><div class="sec-head"><h2>Bank accounts</h2><button class="btn sm" data-act="add-account" data-owner="${o.id}">+ Bank account</button></div>
+    ${ac.length?ac.map(acctCard).join(""):'<div class="muted small">No bank accounts yet. Rent for this owner will be split into these accounts in step 3.</div>'}</section>`;
+}
+function acctCard(a){return `<div class="acct"><div style="min-width:0"><div style="font-weight:600">${esc(a.bank||"Bank")} ${a.label&&a.holder!=="other"?`<span class="small muted">· ${esc(a.label)}</span>`:""}</div>
+  <div class="small">${esc(a.title)||"No account title"}</div><code class="num">${esc(a.number)||"No number"}</code>${a.notes?`<div class="small muted">${esc(a.notes)}</div>`:""}</div>
+  <button class="btn sm" data-act="edit-account" data-id="${a.id}">Edit</button></div>`}
+function viewOutlet(id){
+  const o=outlet(id);if(!o)return '<div class="empty">Outlet not found.</div>';
+  const ts=tenantsOf(o.id);const area=o.unitIds.reduce((a,i)=>a+(unit(i)?.size||0),0);
+  return `<div><button class="btn link" data-back="people" data-ptab-back="outlets">← Outlets</button></div>
+  <div class="page-head"><div><div class="label">Outlet${o.active?"":" · closed"}</div><h1>${esc(o.name)} ${o.noRent?'<span class="pill norent">No rent</span>':""}</h1></div><button class="btn" data-act="edit-outlet" data-id="${o.id}">Edit</button></div>
+  <div class="two">
+    <section class="panel"><h2 style="margin-bottom:10px">Details</h2><dl class="kv num"><dt>Units</dt><dd>${o.unitIds.slice().sort(unitSort).map(i=>`<button class="btn sm" data-go-unit="${esc(i)}">${esc(i)}</button>`).join(" ")||"—"}</dd><dt>Total area</dt><dd>${area?area.toLocaleString("en-PK")+" sq ft":"—"}</dd><dt>Business</dt><dd>${esc(o.business)||"—"}</dd><dt>Office phone</dt><dd>${esc(o.phone)||"—"}</dd><dt>Notes</dt><dd>${esc(o.notes)||"—"}</dd></dl></section>
+    <section class="panel"><div class="sec-head"><h2>Tenants</h2><button class="btn sm" data-act="add-tenant" data-outlet="${o.id}">+ Tenant</button></div>
+      ${ts.length?ts.map(t=>`<button class="item" style="padding:8px 0" data-go-tenant="${t.id}"><div class="avatar">${esc(initials(t.name))}</div><div class="grow"><div class="t">${esc(t.name)}</div><div class="s num">${esc(t.role)||""}${t.role&&t.phone?" · ":""}${esc(t.phone)}</div></div></button>`).join(""):'<div class="muted small">No tenants yet.</div>'}</section>
+  </div>
+  <section class="panel"><div class="sec-head"><h2>Agreements</h2><button class="btn sm" data-act="add-ag" data-outlet="${o.id}">+ Agreement</button></div>
+    ${agsOfOutlet(o.id).length?agsOfOutlet(o.id).map(agRow).join(""):`<div class="muted small">${o.noRent?"This outlet pays no rent, so no agreement is needed.":"No agreement yet. Add one to set rent, service charges and renewal."}</div>`}</section>`;
+}
+function viewTenant(id){
+  const t=D.tenants.find(x=>x.id===id);if(!t)return '<div class="empty">Tenant not found.</div>';
+  return `<div><button class="btn link" data-back="people" data-ptab-back="tenants">← Tenants</button></div>
+  <div class="page-head"><div><div class="label">Tenant (outlet owner)</div><h1>${esc(t.name)}</h1></div><button class="btn" data-act="edit-tenant" data-id="${t.id}">Edit</button></div>
+  <section class="panel"><dl class="kv num"><dt>Role</dt><dd>${esc(t.role)||"—"}</dd><dt>Phone / WhatsApp</dt><dd>${esc(t.phone)||"—"}</dd><dt>CNIC</dt><dd>${esc(t.cnic)||"—"}</dd>
+  <dt>Outlets</dt><dd>${(t.outletIds||[]).map(i=>`<button class="btn sm" data-go-outlet="${i}">${esc(outlet(i)?.name||"?")}</button>`).join(" ")||"—"}</dd><dt>Notes</dt><dd>${esc(t.notes)||"—"}</dd></dl></section>`;
+}
+function accountsBody(){
+  const groups=[["orion","Orion Tower accounts"],["owner","Shop owner accounts"],["other","Other accounts"]];
+  return `<div class="note info">These are the accounts where rent and service charges land. In step 3 each payment can be split across any of them.</div>
+  ${groups.map(([k,l])=>{const as=D.accounts.filter(a=>a.holder===k);
+    return `<section class="panel"><div class="sec-head"><h2>${l}</h2><span class="small muted">${as.length}</span></div>${as.length?as.map(a=>`<div class="acct"><div style="min-width:0"><div style="font-weight:600">${esc(acctHolderName(a))}</div><div class="small">${esc(a.bank)||"Bank"} · ${esc(a.title)||"No title"}</div><code class="num">${esc(a.number)||"No number"}</code></div><div class="row">${k==="owner"&&a.ownerId?`<button class="btn sm" data-go-owner="${a.ownerId}">Owner</button>`:""}<button class="btn sm" data-act="edit-account" data-id="${a.id}">Edit</button></div></div>`).join(""):'<div class="muted small">None yet.</div>'}</section>`}).join("")}`;
+}
+function viewMore(){
+  return `<div class="page-head"><div><div class="label">Settings and backup</div><h1>More</h1></div></div>
+  <div class="more-links stats"><button class="stat" data-goto-tab="people" style="text-align:left;cursor:pointer"><span class="label">People</span><b style="font-size:1.05rem">Owners, outlets, tenants, accounts</b></button><button class="stat" data-goto-tab="reports" style="text-align:left;cursor:pointer"><span class="label">Reports</span><b style="font-size:1.05rem">Excel, Sheets, Word</b></button></div>
+  <section class="panel"><h2 style="margin-bottom:8px">Your data on this device</h2>
+    <p class="small muted" style="margin:0 0 10px">Everything is saved inside this browser on this device, and works without internet. Google Sheets and Google Drive sync will be switched on later, after you approve the Google connection.</p>
+    <dl class="kv num" style="margin-bottom:12px"><dt>Last saved</dt><dd>${D.meta.lastSaved?new Date(D.meta.lastSaved).toLocaleString("en-PK"):"—"}</dd><dt>Payments</dt><dd>${D.payments.length}</dd><dt>Changes made</dt><dd>${D.meta.changes||0}</dd><dt>Storage</dt><dd>${Store.db?(saved?"Saved on this device":"Last save failed"):"Browser storage blocked. Changes will be lost when you close this page."}</dd></dl>
+    <div class="row"><button class="btn primary" data-act="backup-file">Download backup file</button><button class="btn" data-act="backup-copy">Copy backup text</button><button class="btn" data-act="restore">Restore from backup</button></div>
+  </section>
+  <section class="panel"><h2 style="margin-bottom:8px">Rent tracking starts from</h2><p class="small muted" style="margin:0 0 10px">Months before this are not checked for late rent. Set it to the first month you record payments in this app.</p>
+    <div class="row"><input id="track-from" type="month" value="${esc(trackFrom())}" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)"><button class="btn" data-act="set-track">Save</button></div></section>
+  <section class="panel"><h2 style="margin-bottom:8px">Coming in the next steps</h2>
+    <ol class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
+      <li class="muted">Units, owners, tenants, bank accounts (done)</li>
+      <li class="muted">Agreements, renewals every 11 months, rent phases (done)</li>
+      <li class="muted">Payments with photo, split accounts, discounts with reason, red dots (done)</li>
+      <li class="muted">Reports and Excel / Google Sheets / Doc export (done)</li>
+      <li class="muted">Lift visits, petty cash, cleaning log, to-do list, documents, staff records (done)</li>
+      <li>Next: install on phone and PC, then sync to your Google Sheets and Drive</li></ol></section>
+  <section class="panel"><h2 style="margin-bottom:8px">Start over</h2><p class="small muted" style="margin:0 0 10px">Clears everything on this device and puts back the starting list of 30 units and 10 outlets.</p><button class="btn danger" data-act="reset">Reset all data</button></section>`;
+}
+
+/* ---------- modal & forms ---------- */
+let modalState=null;
+function openModal(title,bodyHTML,{onSave,onDelete,saveLabel="Save"}={}){
+  modalState={onSave,onDelete};
+  $("#modal-root").innerHTML=`<div class="scrim" id="scrim"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header><h2>${esc(title)}</h2><button class="btn sm" data-modal="close">Close</button></header>
+  <form class="body" id="mform" novalidate>${bodyHTML}<div class="err" id="merr"></div></form>
+  <footer><div>${onDelete?'<button class="btn danger" data-modal="delete">Delete</button>':""}</div><div class="row"><button class="btn" data-modal="close">Cancel</button>${onSave?`<button class="btn primary" data-modal="save">${esc(saveLabel)}</button>`:""}</div></footer></div></div>`;
+  const first=$("#mform input,#mform select,#mform textarea");if(first&&window.innerWidth>900)first.focus();
+}
+function closeModal(){$("#modal-root").innerHTML="";modalState=null}
+function confirmBox(msg,yesLabel,onYes){
+  openModal("Please confirm",`<p style="margin:0">${msg}</p>`,{onSave:async()=>{await onYes();return true},saveLabel:yesLabel});
+}
+const fv=n=>{const el=$(`#mform [name="${n}"]`);return el?el.value.trim():""};
+const fnum=n=>{const v=fv(n).replace(/,/g,"");return v===""?null:Number(v)};
+const field=(name,label,val,{type="text",hint="",ph="",mode=""}={})=>`<div class="field"><label for="f-${name}">${label}</label><input id="f-${name}" name="${name}" type="${type}" value="${esc(val??"")}" placeholder="${esc(ph)}" ${mode?`inputmode="${mode}"`:""}>${hint?`<span class="hint">${hint}</span>`:""}</div>`;
+const area=(name,label,val)=>`<div class="field"><label for="f-${name}">${label}</label><textarea id="f-${name}" name="${name}">${esc(val??"")}</textarea></div>`;
+const select=(name,label,opts,val)=>`<div class="field"><label for="f-${name}">${label}</label><select id="f-${name}" name="${name}">${opts.map(o=>{const [v,l]=Array.isArray(o)?o:[o,o];return `<option value="${esc(v)}" ${String(v)===String(val)?"selected":""}>${esc(l)}</option>`}).join("")}</select></div>`;
+const chipsSel=n=>[...document.querySelectorAll(`#mform [data-chip="${n}"][aria-pressed="true"]`)].map(b=>b.dataset.val);
+
+function formUnit(id){
+  const u=unit(id);
+  openModal("Edit unit "+u.id,`
+    <div class="grid2">${field("size","Covered area (sq ft)",u.size,{mode:"numeric"})}${select("status","Status",STATUSES,u.status)}</div>
+    <div class="grid2">${field("saleRate","Sale price of the unit (PKR)",u.saleRate,{mode:"numeric"})}${field("rentRate","Asking rent for the unit (PKR / month)",u.rentRate,{mode:"numeric",hint:"The rent actually charged is set in the agreement."})}</div>
+    ${field("serviceCharges","Service charges (PKR per month)",u.serviceCharges,{mode:"numeric"})}
+    <label class="row small"><input type="checkbox" name="noRent" ${u.noRent?"checked":""}> No rent and no rent alerts for this unit (e.g. K6 Studio office)</label>
+    ${area("notes","Notes",u.notes)}`,
+  {onSave:async()=>{
+    for(const k of ["size","saleRate","rentRate","serviceCharges"]){const v=fnum(k);if(v!=null&&(isNaN(v)||v<0))return `${k==="size"?"Covered area":"Prices and charges"} must be a number.`}
+    Object.assign(u,{size:fnum("size"),saleRate:fnum("saleRate"),rentRate:fnum("rentRate"),serviceCharges:fnum("serviceCharges"),status:fv("status"),noRent:$('#mform [name="noRent"]').checked,notes:fv("notes"),updatedAt:now()});
+    await persist();toast("Unit "+u.id+" saved");return true;}});
+}
+function shareRowHTML(unitId="",share=""){return `<div class="sharerow"><select name="su" aria-label="Unit">${D.units.map(u=>`<option ${u.id===unitId?"selected":""}>${esc(u.id)}</option>`).join("")}</select><input name="ss" inputmode="decimal" placeholder="Share %" value="${esc(share)}" aria-label="Share percent"><button type="button" class="x" data-rm-row aria-label="Remove">✕</button></div>`}
+function formOwner(id,presetUnit){
+  const o=id?owner(id):{name:"",phone:"",cnic:"",notes:"",units:presetUnit?[{unitId:presetUnit,share:""}]:[]};
+  openModal(id?"Edit shop owner":"New shop owner",`
+    ${field("name","Full name",o.name)}
+    <div class="grid2">${field("phone","Phone / WhatsApp",o.phone,{type:"tel",ph:"03xx-xxxxxxx"})}${field("cnic","CNIC",o.cnic,{ph:"31202-1234567-1",mode:"numeric"})}</div>
+    <div class="field"><label>Units owned and share</label><span class="hint">Leave share empty if this person owns the whole unit.</span><div id="shares" style="display:flex;flex-direction:column;gap:8px">${(o.units||[]).map(x=>shareRowHTML(x.unitId,x.share)).join("")}</div><div><button type="button" class="btn sm" data-add-share>+ Add unit</button></div></div>
+    ${area("notes","Notes",o.notes)}
+    ${id?"":'<div class="note info">After saving, open the owner to add their bank accounts.</div>'}`,
+  {onSave:async()=>{
+    const name=fv("name");if(!name)return "Please type the owner's name.";
+    const rows=[...document.querySelectorAll("#shares .sharerow")].map(r=>({unitId:r.querySelector('[name="su"]').value,share:r.querySelector('[name="ss"]').value.trim()}));
+    const seen=new Set();for(const r of rows){if(seen.has(r.unitId))return `Unit ${r.unitId} is listed twice.`;seen.add(r.unitId);if(r.share&&(isNaN(r.share)||r.share<=0||r.share>100))return `Share for ${r.unitId} must be between 1 and 100.`}
+    const rec={name,phone:fv("phone"),cnic:fv("cnic"),notes:fv("notes"),units:rows.map(r=>({unitId:r.unitId,share:r.share?Number(r.share):null})),updatedAt:now()};
+    let target;
+    if(id){target=Object.assign(o,rec)}else{target={id:uid("own"),...rec};D.owners.push(target)}
+    await persist();toast("Owner saved");closeModal();go({tab:"people",owner:target.id});return false;},
+   onDelete:id?()=>{const n=acctsOfOwner(id).length;confirmBox(`Delete <b>${esc(o.name)}</b>${n?` and their ${n} bank account(s)`:""}? This cannot be undone.`,"Delete",async()=>{D.owners=D.owners.filter(x=>x.id!==id);D.accounts=D.accounts.filter(a=>!(a.holder==="owner"&&a.ownerId===id));D.agreements.forEach(a=>a.ownerIds=(a.ownerIds||[]).filter(x=>x!==id));await persist();toast("Owner deleted");route={tab:"people"};})}:null});
+}
+function formOutlet(id,presetUnit){
+  const o=id?outlet(id):{name:"",unitIds:presetUnit?[presetUnit]:[],active:true,business:"",phone:"",notes:"",noRent:false};
+  const chip=u=>{const taken=activeOutletOf(u.id);const busy=taken&&taken.id!==id;
+    return `<button type="button" class="chip" data-chip="units" data-val="${esc(u.id)}" aria-pressed="${o.unitIds.includes(u.id)}" ${busy?`disabled title="Taken by ${esc(taken.name)}"`:""}>${esc(u.id)}${busy?" · "+esc(taken.name):""}</button>`};
+  openModal(id?"Edit outlet":"New outlet",`
+    ${field("name","Company / brand name",o.name,{ph:"e.g. Haier"})}
+    <div class="field"><label>Units this outlet uses</label><span class="hint">One outlet can take several units. Greyed units already have an active outlet.</span>
+      ${FLOORS.map(f=>`<div class="chips" style="margin-top:6px"><span class="label" style="width:40px;align-self:center">${f.short}</span>${D.units.filter(u=>u.floor===f.key).map(chip).join("")}</div>`).join("")}</div>
+    <div class="grid2">${field("business","Type of business",o.business,{ph:"e.g. Electronics showroom"})}${field("phone","Office phone",o.phone,{type:"tel"})}</div>
+    <div class="grid2">${select("active","Status",[["1","Active, running now"],["0","Closed / moved out"]],o.active?"1":"0")}<label class="row small" style="align-self:end;padding-bottom:10px"><input type="checkbox" name="noRent" ${o.noRent?"checked":""}> Pays no rent</label></div>
+    ${area("notes","Notes",o.notes)}`,
+  {onSave:async()=>{
+    const name=fv("name");if(!name)return "Please type the outlet name.";
+    const ids=chipsSel("units");if(!ids.length)return "Pick at least one unit.";
+    const active=fv("active")==="1";
+    if(active){const clash=ids.map(i=>[i,activeOutletOf(i)]).find(([,x])=>x&&x.id!==id);if(clash)return `Unit ${clash[0]} already belongs to ${clash[1].name}. Close that outlet first.`}
+    const rec={name,unitIds:ids,active,business:fv("business"),phone:fv("phone"),notes:fv("notes"),noRent:$('#mform [name="noRent"]').checked,updatedAt:now()};
+    const before=id?o.unitIds.slice():[];
+    let target;if(id){target=Object.assign(o,rec)}else{target={id:uid("out"),...rec};D.outlets.push(target)}
+    if(active)ids.forEach(i=>{const u=unit(i);if(u.status==="Vacant"||u.status==="Reserved"){u.status=rec.noRent?"Owner-occupied":"Rented";u.updatedAt=now()}});
+    const freed=active?before.filter(i=>!ids.includes(i)):(id?before:[]);
+    freed.forEach(i=>{const u=unit(i);if(!activeOutletOf(i)&&u.status==="Rented"){u.status="Vacant";u.updatedAt=now()}});
+    await persist();toast("Outlet saved");closeModal();go({tab:"people",outlet:target.id});return false;},
+   onDelete:id?()=>confirmBox(`Delete outlet <b>${esc(o.name)}</b>${agsOfOutlet(id).length?` and its ${agsOfOutlet(id).length} agreement(s)`:""}? Its units will show as vacant. Tenants stay in your list. If the business only moved out, choose “Closed” instead so the history stays.`,"Delete",async()=>{
+     D.outlets=D.outlets.filter(x=>x.id!==id);D.agreements=D.agreements.filter(a=>a.outletId!==id);D.tenants.forEach(t=>t.outletIds=(t.outletIds||[]).filter(x=>x!==id));
+     o.unitIds.forEach(i=>{const u=unit(i);if(!activeOutletOf(i)&&u.status==="Rented")u.status="Vacant"});
+     await persist();toast("Outlet deleted");route={tab:"people"};}):null});
+}
+function formTenant(id,presetOutlet){
+  const t=id?D.tenants.find(x=>x.id===id):{name:"",phone:"",cnic:"",role:"",notes:"",outletIds:presetOutlet?[presetOutlet]:[]};
+  openModal(id?"Edit tenant":"New tenant",`
+    ${field("name","Full name",t.name)}
+    <div class="grid2">${field("phone","Phone / WhatsApp",t.phone,{type:"tel",ph:"03xx-xxxxxxx"})}${field("cnic","CNIC",t.cnic,{ph:"31202-1234567-1",mode:"numeric"})}</div>
+    ${field("role","Role",t.role,{ph:"e.g. Franchise owner, Area manager"})}
+    <div class="field"><label>Outlets</label><span class="hint">A tenant can be linked to more than one outlet.</span><div class="chips">${D.outlets.filter(o=>o.active||t.outletIds.includes(o.id)).map(o=>`<button type="button" class="chip" data-chip="outlets" data-val="${o.id}" aria-pressed="${t.outletIds.includes(o.id)}">${esc(o.name)}</button>`).join("")}</div></div>
+    ${area("notes","Notes",t.notes)}`,
+  {onSave:async()=>{
+    const name=fv("name");if(!name)return "Please type the tenant's name.";
+    const rec={name,phone:fv("phone"),cnic:fv("cnic"),role:fv("role"),notes:fv("notes"),outletIds:chipsSel("outlets"),updatedAt:now()};
+    let target;if(id){target=Object.assign(t,rec)}else{target={id:uid("ten"),...rec};D.tenants.push(target)}
+    await persist();toast("Tenant saved");closeModal();go({tab:"people",tenant:target.id});return false;},
+   onDelete:id?()=>confirmBox(`Delete tenant <b>${esc(t.name)}</b>?`,"Delete",async()=>{D.tenants=D.tenants.filter(x=>x.id!==id);await persist();toast("Tenant deleted");route={tab:"people"}}):null});
+}
+function formAccount(id,presetOwner){
+  const a=id?D.accounts.find(x=>x.id===id):{holder:presetOwner?"owner":"orion",ownerId:presetOwner||"",label:"",bank:"",title:"",number:"",notes:""};
+  const ownerOpts=D.owners.length?D.owners.map(o=>[o.id,o.name]):[["","No owners yet"]];
+  openModal(id?"Edit bank account":"New bank account",`
+    <div class="grid2">${select("holder","Whose account",Object.entries(HOLDERS),a.holder)}
+      <div id="ownerwrap" ${a.holder==="owner"?"":"hidden"}>${select("ownerId","Shop owner",ownerOpts,a.ownerId)}</div>
+      <div id="labelwrap" ${a.holder==="owner"?"hidden":""}>${field("label","Account name",a.label,{ph:a.holder==="other"?"e.g. Service station account":"e.g. Orion main account"})}</div></div>
+    <div class="grid2">${field("bank","Bank name",a.bank,{ph:"e.g. Meezan Bank, HBL"})}${field("title","Account title",a.title)}</div>
+    ${field("number","Account number or IBAN",a.number,{ph:"PK36 MEZN 0000 0000 0000 0000"})}
+    ${area("notes","Notes",a.notes)}`,
+  {onSave:async()=>{
+    const holder=fv("holder");
+    if(holder==="owner"&&!fv("ownerId"))return "Add the shop owner first, then add their account.";
+    if(!fv("bank")&&!fv("number"))return "Type at least the bank name or account number.";
+    const rec={holder,ownerId:holder==="owner"?fv("ownerId"):"",label:holder==="owner"?"":fv("label"),bank:fv("bank"),title:fv("title"),number:fv("number"),notes:fv("notes"),updatedAt:now()};
+    if(id)Object.assign(a,rec);else D.accounts.push({id:uid("acc"),...rec});
+    await persist();toast("Bank account saved");return true;},
+   onDelete:id?()=>confirmBox(`Delete the account <b>${esc(a.bank)} ${esc(a.number)}</b>?`,"Delete",async()=>{D.accounts=D.accounts.filter(x=>x.id!==id);D.agreements.forEach(g=>{g.rentAccountIds=(g.rentAccountIds||[]).filter(x=>x!==id);g.scAccountIds=(g.scAccountIds||[]).filter(x=>x!==id)});await persist();toast("Account deleted")}):null});
+}
+
+/* ---------- agreements (step 2) ---------- */
+const pad2=n=>String(n).padStart(2,"0");
+const todayISO=()=>{const d=new Date();return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`};
+function addMonths(iso,m){if(!iso)return "";const [y,mo,d]=iso.split("-").map(Number);const t=new Date(y,mo-1+m,1);const last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();return `${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(Math.min(d,last))}`}
+const ymOf=iso=>iso?iso.slice(0,7):"";
+const ymAdd=(ym,m)=>addMonths(ym+"-01",m).slice(0,7);
+const daysBetween=(a,b)=>Math.round((new Date(b+"T00:00:00")-new Date(a+"T00:00:00"))/864e5);
+const fmtDate=iso=>{if(!iso)return "—";const [y,m,d]=iso.split("-").map(Number);return new Date(y,m-1,d||1).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})};
+const fmtYM=ym=>{if(!ym)return "—";const [y,m]=ym.split("-").map(Number);return new Date(y,m-1,1).toLocaleDateString("en-GB",{month:"short",year:"numeric"})};
+const agsOfOutlet=oid=>D.agreements.filter(a=>a.outletId===oid).sort((a,b)=>(b.active-a.active)||String(b.agreementDate).localeCompare(a.agreementDate));
+const activeAgsOfUnit=uid_=>D.agreements.filter(a=>a.active&&(a.unitIds||[]).includes(uid_));
+const RENEW_WARN_DAYS=30;
+/* rent due for a month (YYYY-MM). 0 during the grace period. Phases win over the normal rent. */
+function rentFor(a,ym){
+  if(!a||!ym)return 0;
+  if(a.rentStart&&ym<ymOf(a.rentStart))return 0;
+  const ph=(a.phases||[]).find(p=>p.from&&p.to&&p.from<=ym&&ym<=p.to);
+  if(ph)return Number(ph.rent)||0;
+  const h=(a.rentHistory||[]).filter(x=>ymOf(x.from)<=ym).sort((x,y)=>x.from.localeCompare(y.from));
+  return Number((h.length?h[h.length-1]:(a.rentHistory||[])[0]||{rent:0}).rent)||0;
+}
+function scFor(a,ym){if(!a||a.scMode!=="separate")return 0;if(a.rentStart&&ym<ymOf(a.rentStart))return 0;return Number(a.scAmount)||0}
+const currentRent=a=>{const h=(a.rentHistory||[]);return h.length?Number(h[h.length-1].rent)||0:0};
+function renewalState(a){
+  if(!a.active||!a.nextRenewal)return {k:"none"};
+  const d=daysBetween(todayISO(),a.nextRenewal);
+  if(d<0)return {k:"overdue",d,txt:`Renewal ${-d} day${d===-1?"":"s"} overdue`};
+  if(d<=RENEW_WARN_DAYS)return {k:"soon",d,txt:d===0?"Renewal due today":`Renewal in ${d} day${d===1?"":"s"}`};
+  return {k:"ok",d,txt:`Renews ${fmtDate(a.nextRenewal)}`};
+}
+function phaseChange(a){
+  if(!a.active)return null;const ym=ymOf(todayISO());const nx=ymAdd(ym,1);
+  const r0=rentFor(a,ym),r1=rentFor(a,nx);
+  if(r0!==r1&&(a.phases||[]).length)return {from:r0,to:r1,ym:nx};
+  return null;
+}
+function nextRenewalFrom(agDate,since){
+  if(!agDate)return "";let n=1,d=addMonths(agDate,11);
+  while(since&&d<=since&&n<40){n++;d=addMonths(agDate,11*n)}
+  return d;
+}
+const agTitle=a=>`${outlet(a.outletId)?.name||"Outlet"} · ${(a.unitIds||[]).slice().sort(unitSort).join(" + ")}`;
+const rsPill=st=>st.k==="overdue"?`<span class="pill dot bad">${esc(st.txt)}</span>`:st.k==="soon"?`<span class="pill st-Reserved">${esc(st.txt)}</span>`:st.k==="ok"?`<span class="pill st-Vacant">${esc(st.txt)}</span>`:"";
+function agRow(a){
+  const st=renewalState(a);const ym=ymOf(todayISO());
+  const ow=(a.ownerIds||[]).map(i=>owner(i)?.name).filter(Boolean);
+  return `<button class="item" data-go-ag="${a.id}"><div class="avatar">${esc(initials(outlet(a.outletId)?.name))}</div><div class="grow"><div class="t">${esc(agTitle(a))}</div>
+   <div class="s num">${pkr(rentFor(a,ym))} rent${a.scMode==="separate"?" + "+pkr(a.scAmount)+" service":a.scMode==="included"?" incl. service":""} this month${ow.length?" · with "+esc(ow.join(", ")):""}</div></div>
+   ${a.active?rsPill(st):'<span class="pill closed">Ended</span>'}</button>`;
+}
+let agFilter="active";
+function viewAgreements(){
+  const list=D.agreements.filter(a=>agFilter==="all"||(agFilter==="active"?a.active:!a.active))
+    .sort((a,b)=>(b.active-a.active)||String(a.nextRenewal||"9").localeCompare(b.nextRenewal||"9"));
+  const missing=D.outlets.filter(o=>o.active&&!o.noRent&&!agsOfOutlet(o.id).some(a=>a.active));
+  return `<div class="page-head"><div><div class="label">Sorted by next renewal</div><h1>Agreements</h1></div><button class="btn primary" data-act="add-ag">+ Agreement</button></div>
+  <div class="seg" role="group" aria-label="Show"><button aria-pressed="${agFilter==="active"}" data-agf="active">Active</button><button aria-pressed="${agFilter==="ended"}" data-agf="ended">Ended</button><button aria-pressed="${agFilter==="all"}" data-agf="all">All</button></div>
+  <div class="list">${list.map(agRow).join("")||'<div class="empty">No agreements here yet.</div>'}</div>
+  ${missing.length&&agFilter!=="ended"?`<section class="panel"><h2 style="margin-bottom:8px">Outlets without an agreement</h2><div class="chips">${missing.map(o=>`<button class="chip" data-act="add-ag" data-outlet="${o.id}">+ ${esc(o.name)}</button>`).join("")}</div></section>`:""}`;
+}
+function viewAgreement(id){
+  const a=D.agreements.find(x=>x.id===id);if(!a)return '<div class="empty">Agreement not found.</div>';
+  const o=outlet(a.outletId);const st=renewalState(a);const pc=phaseChange(a);const ym=ymOf(todayISO());
+  const sched=[];for(let i=0;i<12;i++){const m=ymAdd(ym,i);sched.push([m,rentFor(a,m),scFor(a,m)])}
+  const ow=(a.ownerIds||[]).map(owner).filter(Boolean);
+  const accts=ids=>(ids||[]).map(i=>D.accounts.find(x=>x.id===i)).filter(Boolean).map(x=>`<div>${esc(acctHolderName(x))}: ${acctLine(x)}</div>`).join("")||"—";
+  const proposed=Math.round(currentRent(a)*(1+(Number(a.increasePct)||0)/100));
+  return `<div><button class="btn link" data-back="agreements">← Agreements</button></div>
+  <div class="page-head"><div><div class="label">Agreement${a.active?"":" · ended"}</div><h1>${esc(o?.name||"Outlet")} <span class="muted" style="font-weight:500">${esc((a.unitIds||[]).slice().sort(unitSort).join(" + "))}</span></h1></div>
+    <div class="row"><button class="btn" data-act="edit-ag" data-id="${a.id}">Edit</button>${a.active&&a.nextRenewal?`<button class="btn primary" data-act="renew" data-id="${a.id}">Renewal done</button>`:""}</div></div>
+  ${st.k==="overdue"?`<div class="note bad">${esc(st.txt)}. Proposed new rent at ${esc(a.increasePct)}% increase is ${pkr(proposed)}. Tap “Renewal done” once it is signed.</div>`:st.k==="soon"?`<div class="note">${esc(st.txt)} (${fmtDate(a.nextRenewal)}). Proposed new rent at ${esc(a.increasePct)}% increase is ${pkr(proposed)}.</div>`:""}
+  ${pc?`<div class="note">Rent phase changes from ${fmtYM(pc.ym)}: ${pkr(pc.from)} becomes ${pkr(pc.to)}.</div>`:""}
+  <div class="two">
+    <section class="panel"><h2 style="margin-bottom:10px">Terms</h2><dl class="kv num">
+      <dt>Agreement date</dt><dd>${fmtDate(a.agreementDate)}</dd>
+      <dt>Rent starts</dt><dd>${fmtDate(a.rentStart)}${a.rentStart&&a.agreementDate&&a.rentStart>a.agreementDate?`<div class="small muted">Grace period of ${daysBetween(a.agreementDate,a.rentStart)} days</div>`:""}</dd>
+      <dt>Rent this month</dt><dd><b>${pkr(rentFor(a,ym))}</b></dd>
+      <dt>Service charges</dt><dd>${a.scMode==="separate"?pkr(a.scAmount)+" per month, due separately":a.scMode==="included"?"Included in rent":"None"}</dd>
+      <dt>Due date</dt><dd>10th of each month, in advance</dd>
+      <dt>Security deposit</dt><dd>${a.deposit?pkr(a.deposit):"—"}</dd>
+      <dt>Tax by tenant</dt><dd>${esc(a.taxNote)||"—"}</dd>
+      <dt>With owner(s)</dt><dd>${ow.length?ow.map(x=>`<button class="btn sm" data-go-owner="${x.id}">${esc(x.name)}</button>`).join(" "):"—"}</dd>
+      <dt>Notes</dt><dd>${esc(a.notes)||"—"}</dd></dl></section>
+    <section class="panel"><h2 style="margin-bottom:10px">Renewal and accounts</h2><dl class="kv num">
+      <dt>Next renewal</dt><dd>${fmtDate(a.nextRenewal)} ${rsPill(st)}</dd>
+      <dt>Increase at renewal</dt><dd>${esc(a.increasePct)}% → ${pkr(proposed)}</dd>
+      <dt>Rent goes to</dt><dd class="small">${accts(a.rentAccountIds)}</dd>
+      <dt>Service charges to</dt><dd class="small">${a.scMode==="separate"?accts(a.scAccountIds):"—"}</dd></dl>
+      ${(a.renewals||[]).length?`<h3 style="margin:14px 0 6px">Renewal history</h3>${a.renewals.map(r=>`<div class="small num">${fmtDate(r.date)}: ${pkr(r.oldRent)} → ${pkr(r.newRent)} (${esc(r.pct)}%)</div>`).join("")}`:""}
+    </section>
+  </div>
+  <section class="panel"><div class="sec-head"><h2>Next 12 months</h2><span class="small muted">What will be due by the 10th</span></div>
+    <div style="overflow-x:auto"><table class="tbl num"><thead><tr><th>Month</th><th>Rent</th>${a.scMode==="separate"?"<th>Service charges</th>":""}<th>Note</th></tr></thead><tbody>
+    ${sched.map(([m,r,sc],i)=>{const prev=i?sched[i-1][1]:r;const inPh=(a.phases||[]).find(p=>p.from<=m&&m<=p.to);
+      const note=r===0&&a.rentStart&&m<ymOf(a.rentStart)?"Grace period":inPh?(inPh.label||"Rent phase"):(i&&r!==prev?"Rent changes":"");
+      return `<tr><td>${fmtYM(m)}</td><td>${pkr(r)}</td>${a.scMode==="separate"?`<td>${pkr(sc)}</td>`:""}<td class="muted">${esc(note)}</td></tr>`}).join("")}
+    </tbody></table></div>
+    <p class="small muted" style="margin:8px 0 0">Rent increases at renewal are added when you tap “Renewal done”, so months after the renewal date show the current rent until then.</p></section>`;
+}
+function phaseRowHTML(p={}){return `<div class="phaserow"><input name="pl" placeholder="Label, e.g. First 6 months" value="${esc(p.label||"")}" aria-label="Phase label"><input name="pf" type="month" value="${esc(p.from||"")}" aria-label="From month"><input name="pt" type="month" value="${esc(p.to||"")}" aria-label="To month"><input name="pr" inputmode="numeric" placeholder="Rent PKR" value="${esc(p.rent??"")}" aria-label="Rent"><button type="button" class="x" data-rm-phase aria-label="Remove">✕</button></div>`}
+function formAg(id,presetOutlet){
+  const ex=id?D.agreements.find(x=>x.id===id):null;
+  const a=ex||{outletId:presetOutlet||"",unitIds:[],ownerIds:[],agreementDate:todayISO(),rentStart:todayISO(),rentHistory:[],phases:[],scMode:"separate",scAmount:"",rentAccountIds:[],scAccountIds:[],deposit:"",increasePct:10,nextRenewal:"",taxNote:"",notes:"",active:true};
+  const outs=D.outlets.filter(o=>o.active||o.id===a.outletId);
+  const oid=a.outletId||outs.find(o=>!o.noRent)?.id||"";
+  const lastH=(a.rentHistory||[]).slice(-1)[0]||{};
+  openModal(id?"Edit agreement":"New agreement",`
+    ${select("outletId","Outlet",outs.map(o=>[o.id,o.name+(o.noRent?" (no rent)":"")]),oid)}
+    <div class="field"><label>Units in this agreement</label><span class="hint">If a unit has several shop owners with separate agreements, make one agreement per owner with that owner's rent share.</span><div class="chips" id="ag-units"></div></div>
+    <div class="field"><label>Agreement is with shop owner(s)</label><div class="chips" id="ag-owners"></div></div>
+    <div class="grid2">${field("agreementDate","Agreement date",a.agreementDate,{type:"date"})}${field("rentStart","Rent starts from",a.rentStart,{type:"date",hint:"Later than the agreement date means a grace period."})}</div>
+    <div class="grid2">${field("rent","Monthly rent (PKR)",lastH.rent??"",{mode:"numeric"})}${field("rentFrom","This rent applies from",lastH.from||a.rentStart,{type:"date",hint:"For an older agreement, the date of its last renewal."})}</div>
+    <div class="grid2">${select("scMode","Service charges",[["separate","Separate amount"],["included","Included in rent"],["none","None"]],a.scMode)}<div id="scwrap">${field("scAmount","Service charges (PKR / month)",a.scAmount,{mode:"numeric"})}</div></div>
+    <div class="field"><label>Rent phases (optional)</label><span class="hint">A different rent for some months, e.g. a lower rent for the first 6 months. Phases override the normal rent for those months.</span>
+      <div id="phases" style="display:flex;flex-direction:column;gap:8px">${(a.phases||[]).map(phaseRowHTML).join("")}</div><div><button type="button" class="btn sm" data-add-phase>+ Add phase</button></div></div>
+    <div class="field"><label>Rent goes to which account(s)</label><div class="chips">${acctChips("rentAcc",a.rentAccountIds)}</div></div>
+    <div class="field" id="scaccwrap"><label>Service charges go to which account(s)</label><div class="chips">${acctChips("scAcc",a.scAccountIds)}</div></div>
+    <div class="grid2">${field("increasePct","Rent increase at renewal (%)",a.increasePct,{mode:"decimal"})}${field("nextRenewal","Next renewal date",a.nextRenewal,{type:"date",hint:"Filled in for you: agreement date + 11 months."})}</div>
+    <div class="grid2">${field("deposit","Security deposit (PKR)",a.deposit,{mode:"numeric"})}${field("taxNote","Tax deducted by tenant",a.taxNote,{ph:"e.g. 10% withholding on rent"})}</div>
+    ${select("active","Status",[["1","Active"],["0","Ended"]],a.active?"1":"0")}
+    ${area("notes","Notes",a.notes)}`,
+  {onSave:async()=>{
+    const outletId=fv("outletId");if(!outletId)return "Pick the outlet.";
+    const unitIds=chipsSel("agunits");if(!unitIds.length)return "Pick at least one unit.";
+    const rent=fnum("rent");if(rent==null||isNaN(rent)||rent<0)return "Type the monthly rent in PKR.";
+    const agreementDate=fv("agreementDate");if(!agreementDate)return "Type the agreement date.";
+    const rentStart=fv("rentStart")||agreementDate;
+    const rentFrom=fv("rentFrom")||rentStart;
+    const phases=[...document.querySelectorAll("#phases .phaserow")].map(r=>({label:r.querySelector('[name="pl"]').value.trim(),from:r.querySelector('[name="pf"]').value,to:r.querySelector('[name="pt"]').value,rent:r.querySelector('[name="pr"]').value.replace(/,/g,"").trim()}));
+    for(const p of phases){if(!p.from||!p.to||p.rent===""||isNaN(p.rent))return "Each rent phase needs a from month, a to month and a rent.";if(p.to<p.from)return "A rent phase ends before it starts.";p.rent=Number(p.rent)}
+    const scMode=fv("scMode");const scAmount=fnum("scAmount");if(scMode==="separate"&&(scAmount==null||isNaN(scAmount)))return "Type the service charges amount, or choose “Included in rent”.";
+    const inc=fnum("increasePct");if(inc==null||isNaN(inc))return "Type the rent increase %, for example 10.";
+    let history=(ex?.rentHistory||[]).slice();
+    if(history.length){history[history.length-1]={...history[history.length-1],from:rentFrom,rent}}else history=[{from:rentFrom,rent}];
+    const rec={outletId,unitIds,ownerIds:chipsSel("agowners"),agreementDate,rentStart,rentHistory:history,phases,scMode,scAmount:scMode==="separate"?scAmount:null,
+      rentAccountIds:chipsSel("rentAcc"),scAccountIds:scMode==="separate"?chipsSel("scAcc"):[],deposit:fnum("deposit"),increasePct:inc,
+      nextRenewal:fv("nextRenewal")||nextRenewalFrom(agreementDate,rentFrom),taxNote:fv("taxNote"),notes:fv("notes"),active:fv("active")==="1",updatedAt:now()};
+    let t;if(ex){t=Object.assign(ex,rec)}else{t={id:uid("agr"),renewals:[],...rec};D.agreements.push(t)}
+    await persist();toast("Agreement saved");closeModal();go({tab:"agreements",ag:t.id});return false;},
+   onDelete:id?()=>confirmBox(`Delete this agreement for <b>${esc(agTitle(a))}</b>? If it simply finished, set Status to “Ended” instead so the history stays.`,"Delete",async()=>{D.agreements=D.agreements.filter(x=>x.id!==id);await persist();toast("Agreement deleted");route={tab:"agreements"}}):null});
+  const refresh=()=>{
+    const o=outlet(fv("outletId"));const keepU=ex&&ex.outletId===o?.id?a.unitIds:(o?.unitIds||[]);
+    $("#ag-units").innerHTML=(o?.unitIds||[]).slice().sort(unitSort).map(u=>`<button type="button" class="chip" data-chip="agunits" data-val="${esc(u)}" aria-pressed="${keepU.includes(u)}">${esc(u)}</button>`).join("")||'<span class="small muted">This outlet has no units.</span>';
+    const owns=[...new Set((o?.unitIds||[]).flatMap(u=>ownersOf(u).map(x=>x.id)))];
+    $("#ag-owners").innerHTML=owns.map(i=>`<button type="button" class="chip" data-chip="agowners" data-val="${i}" aria-pressed="${(a.ownerIds||[]).includes(i)}">${esc(owner(i).name)}</button>`).join("")||'<span class="small muted">No shop owners recorded for these units yet. You can add them later.</span>';
+  };
+  const scToggle=()=>{const sep=fv("scMode")==="separate";$("#scwrap").hidden=!sep;$("#scaccwrap").hidden=!sep};
+  let renewTouched=!!ex;
+  const autoRenew=()=>{if(!renewTouched){$('#mform [name="nextRenewal"]').value=nextRenewalFrom(fv("agreementDate"),fv("rentFrom"))}};
+  refresh();scToggle();autoRenew();
+  $('#mform [name="outletId"]').addEventListener("change",refresh);
+  $('#mform [name="scMode"]').addEventListener("change",scToggle);
+  $('#mform [name="nextRenewal"]').addEventListener("input",()=>renewTouched=true);
+  $('#mform [name="agreementDate"]').addEventListener("change",()=>{const rs=$('#mform [name="rentStart"]');if(!ex&&(!rs.value||rs.dataset.auto!=="0")){rs.value=fv("agreementDate");$('#mform [name="rentFrom"]').value=fv("agreementDate")}autoRenew()});
+  $('#mform [name="rentStart"]').addEventListener("change",e=>{e.target.dataset.auto="0";if(!ex)$('#mform [name="rentFrom"]').value=e.target.value;autoRenew()});
+  $('#mform [name="rentFrom"]').addEventListener("change",autoRenew);
+}
+function acctChips(name,sel){
+  if(!D.accounts.length)return '<span class="small muted">No bank accounts yet. Add them under People → Bank accounts, then edit this agreement.</span>';
+  return D.accounts.map(x=>`<button type="button" class="chip" data-chip="${name}" data-val="${x.id}" aria-pressed="${(sel||[]).includes(x.id)}">${esc(acctHolderName(x))} · ${esc(x.bank||"")} ${esc((x.number||"").slice(-4))}</button>`).join("");
+}
+function formRenew(id){
+  const a=D.agreements.find(x=>x.id===id);const cur=currentRent(a);const pct=Number(a.increasePct)||0;
+  openModal("Renewal done",`
+    <p style="margin:0">${esc(agTitle(a))}. Renewal date <b>${fmtDate(a.nextRenewal)}</b>. Current rent <b class="num">${pkr(cur)}</b>.</p>
+    <div class="grid2">${field("pct","Increase this time (%)",pct,{mode:"decimal"})}${field("newRent","New monthly rent (PKR)",Math.round(cur*(1+pct/100)),{mode:"numeric",hint:"Worked out from the %, change it if you agreed a different figure."})}</div>
+    ${field("effFrom","New rent applies from",a.nextRenewal,{type:"date"})}
+    <p class="small muted" style="margin:0">After you confirm, the next renewal is set 11 months later, on <b>${fmtDate(addMonths(a.nextRenewal,11))}</b>.</p>`,
+  {saveLabel:"Confirm renewal",onSave:async()=>{
+    const p=fnum("pct"),nr=fnum("newRent");if(nr==null||isNaN(nr)||nr<0)return "Type the new monthly rent.";
+    const eff=fv("effFrom")||a.nextRenewal;
+    a.renewals=a.renewals||[];a.renewals.push({date:a.nextRenewal,doneOn:todayISO(),oldRent:cur,newRent:nr,pct:p??0});
+    a.rentHistory.push({from:eff,rent:nr});a.nextRenewal=addMonths(a.nextRenewal,11);a.updatedAt=now();
+    await persist();toast("Renewal recorded");return true;}});
+  const pi=$('#mform [name="pct"]');pi.addEventListener("input",()=>{const v=Number(pi.value);if(!isNaN(v))$('#mform [name="newRent"]').value=Math.round(cur*(1+v/100))});
+}
+function homeAlerts(){
+  const out=[];
+  const li=lateItems();const byKind=k=>li.filter(x=>x.kind===k);
+  [["Rent","Rent late"],["Service charges","Service charges late"]].forEach(([k,l])=>{const xs=byKind(k);if(xs.length)out.push({lvl:"bad",t:`${l}: ${xs.length} item${xs.length===1?"":"s"}, ${pkr(xs.reduce((s,x)=>s+x.bal,0))} pending (${[...new Set(xs.map(x=>outlet(x.r.a.outletId)?.name))].join(", ")})`,money:"late"})});
+  D.agreements.filter(a=>a.active).forEach(a=>{const st=renewalState(a);
+    if(st.k==="overdue")out.push({lvl:"bad",t:`${agTitle(a)}: ${st.txt}`,ag:a.id});
+    else if(st.k==="soon")out.push({lvl:"warn",t:`${agTitle(a)}: ${st.txt}`,ag:a.id});
+    const pc=phaseChange(a);if(pc)out.push({lvl:"warn",t:`${agTitle(a)}: rent changes to ${pkr(pc.to)} from ${fmtYM(pc.ym)}`,ag:a.id});
+  });
+  liftStatus().filter(x=>x.missing).forEach(x=>out.push({lvl:"bad",t:`${x.l}: no Royal Elevator visit recorded this month, and the ${LIFT_DAY}th has passed`,ops:"lifts"}));
+  const od=overdueTasks();if(od.length)out.push({lvl:"bad",t:`${od.length} task${od.length===1?"":"s"} overdue: ${od.slice(0,3).map(t=>t.title).join(", ")}${od.length>3?"…":""}`,ops:"tasks"});
+  return out.sort((x,y)=>(x.lvl==="bad"?0:1)-(y.lvl==="bad"?0:1));
+}
+
+/* ---------- payments, dues and red dots (step 3) ---------- */
+const DUE_DAY=10;
+const curYM=()=>ymOf(todayISO());
+const dueDate=ym=>ym+"-"+pad2(DUE_DAY);
+const isLate=ym=>todayISO()>dueDate(ym);
+const trackFrom=()=>D.meta.trackFrom||curYM();
+function agMonths(a){
+  if(!a.active&&!a.endedYM)return [];
+  let from=trackFrom();if(a.rentStart&&ymOf(a.rentStart)>from)from=ymOf(a.rentStart);
+  const to=curYM();const out=[];let m=from;let n=0;while(m<=to&&n<240){out.push(m);m=ymAdd(m,1);n++}
+  return out;
+}
+const paysFor=(agId,ym)=>D.payments.filter(p=>p.agreementId===agId&&p.month===ym);
+function dueRow(a,ym){
+  const ps=paysFor(a.id,ym);const sum=f=>ps.reduce((s,p)=>s+(Number(p[f])||0),0);
+  const rentDue=rentFor(a,ym),scDue=scFor(a,ym);
+  const rentPaid=sum("rentAmount")+sum("taxAmount"),rentDisc=sum("rentDiscount");
+  const scPaid=sum("scAmount"),scDisc=sum("scDiscount");
+  const rentBal=Math.max(0,rentDue-rentPaid-rentDisc),scBal=Math.max(0,scDue-scPaid-scDisc);
+  const late=isLate(ym);
+  const st=(due,bal,paid)=>due===0?"none":bal<=0?"paid":late?"late":paid>0?"part":"due";
+  return {a,ym,ps,rentDue,scDue,rentPaid,rentDisc,scPaid,scDisc,rentBal,scBal,late,
+    rentSt:st(rentDue,rentBal,rentPaid+rentDisc),scSt:st(scDue,scBal,scPaid+scDisc),
+    over:(rentPaid+rentDisc-rentDue)+(scDue?scPaid+scDisc-scDue:0)};
+}
+function lateItems(){
+  const out=[];
+  D.agreements.filter(a=>a.active&&!outlet(a.outletId)?.noRent).forEach(a=>agMonths(a).forEach(ym=>{const r=dueRow(a,ym);
+    if(r.rentSt==="late")out.push({kind:"Rent",r,bal:r.rentBal,days:daysBetween(dueDate(ym),todayISO())});
+    if(r.scSt==="late")out.push({kind:"Service charges",r,bal:r.scBal,days:daysBetween(dueDate(ym),todayISO())});
+  }));
+  return out.sort((x,y)=>y.days-x.days);
+}
+const ST_LABEL={paid:"Paid",late:"Late",part:"Part paid",due:"Due by 10th",none:"—"};
+const stPill=s=>s==="paid"?'<span class="pill st-Rented">Paid</span>':s==="late"?'<span class="pill dot bad">Late</span>':s==="part"?'<span class="pill st-Reserved">Part paid</span>':s==="due"?'<span class="pill st-Vacant">Due by 10th</span>':"";
+function reminderText(a,ym){
+  const r=dueRow(a,ym);const o=outlet(a.outletId);const parts=[];
+  if(r.rentBal>0)parts.push(`rent ${pkr(r.rentBal)}`);if(r.scBal>0)parts.push(`service charges ${pkr(r.scBal)}`);
+  return `Assalam-o-Alaikum. This is a reminder from Orion Tower management, Bahawalpur, for ${o?.name||"your outlet"} (unit ${a.unitIds.slice().sort(unitSort).join(", ")}). The ${parts.join(" and ")} for ${fmtYM(ym)} was due by ${DUE_DAY} ${fmtYM(ym)}. Kindly arrange the payment at your earliest and share the slip. JazakAllah.\n\nKashif Mahmood\nGeneral Manager, Orion Tower`;
+}
+async function copyText(t){try{await navigator.clipboard.writeText(t);toast("Message copied. Paste it in WhatsApp.")}catch(e){openModal("Reminder message",`<p class="small muted" style="margin:0">Select all and copy.</p><textarea style="min-height:220px;width:100%">${esc(t)}</textarea>`)}}
+
+let moneyTab="month",moneyYM=null;
+function viewMoney(){
+  const ym=moneyYM||curYM();
+  const tabs=`<div class="seg" role="group" aria-label="Show"><button aria-pressed="${moneyTab==="month"}" data-mtab="month">Monthly dues</button><button aria-pressed="${moneyTab==="late"}" data-mtab="late">Late list (${lateItems().length})</button><button aria-pressed="${moneyTab==="payments"}" data-mtab="payments">Payments (${D.payments.length})</button></div>`;
+  const head=`<div class="page-head"><div><div class="label">Rent and service charges · due by the ${DUE_DAY}th, in advance</div><h1>Money</h1></div><button class="btn primary" data-act="add-pay">+ Payment</button></div>`;
+  if(moneyTab==="late"){
+    const li=lateItems();
+    return head+tabs+(li.length?`<div class="list">${li.map(x=>`<div class="item" style="cursor:default"><div class="avatar" style="color:var(--bad)">${esc(initials(outlet(x.r.a.outletId)?.name))}</div><div class="grow"><div class="t">${esc(agTitle(x.r.a))}</div><div class="s num">${x.kind} for ${fmtYM(x.r.ym)} · ${pkr(x.bal)} pending · ${x.days} day${x.days===1?"":"s"} late</div></div>
+      <div class="row"><button class="btn sm" data-act="remind" data-ag="${x.r.a.id}" data-ym="${x.r.ym}">Copy reminder</button><button class="btn sm primary" data-act="add-pay" data-ag="${x.r.a.id}" data-ym="${x.r.ym}">+ Payment</button></div></div>`).join("")}</div>`:'<div class="panel empty">Nobody is late. Every due amount has been received or covered by a discount with a reason.</div>');
+  }
+  if(moneyTab==="payments"){
+    const ps=D.payments.slice().sort((x,y)=>(y.date||"").localeCompare(x.date||"")||(y.createdAt||"").localeCompare(x.createdAt||""));
+    return head+tabs+`<div class="list">${ps.map(p=>{const a=D.agreements.find(x=>x.id===p.agreementId);const tot=(Number(p.rentAmount)||0)+(Number(p.scAmount)||0);
+      return `<button class="item" data-act="view-pay" data-id="${p.id}"><div class="avatar">${p.hasPhoto?'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>':esc(initials(outlet(a?.outletId)?.name))}</div><div class="grow"><div class="t">${esc(a?agTitle(a):"Deleted agreement")}</div><div class="s num">${fmtDate(p.date)} · for ${fmtYM(p.month)} · ${(p.splits||[]).length} account${(p.splits||[]).length===1?"":"s"}${p.rentDiscount||p.scDiscount?" · discount":""}</div></div><b class="num">${pkr(tot)}</b></button>`}).join("")||'<div class="empty">No payments yet. Tap “+ Payment” when a cheque or transfer comes in.</div>'}</div>`;
+  }
+  const rows=D.agreements.filter(a=>a.active&&!outlet(a.outletId)?.noRent).filter(a=>agMonths(a).includes(ym)||ym>curYM()).map(a=>dueRow(a,ym));
+  const T=k=>rows.reduce((s,r)=>s+r[k],0);
+  const collected=T("rentPaid")+T("scPaid");const due=T("rentDue")+T("scDue");const pend=T("rentBal")+T("scBal");
+  return head+tabs+`
+  <div class="row"><button class="btn sm" data-mym="${ymAdd(ym,-1)}" aria-label="Previous month">←</button><h2 style="min-width:120px;text-align:center">${fmtYM(ym)}</h2><button class="btn sm" data-mym="${ymAdd(ym,1)}" aria-label="Next month">→</button>${ym!==curYM()?`<button class="btn sm link" data-mym="${curYM()}">This month</button>`:""}</div>
+  <div class="stats"><div class="stat"><span class="label">Due</span><b>${pkr(due)}</b><span class="small muted">rent ${pkr(T("rentDue"))} · service ${pkr(T("scDue"))}</span></div>
+   <div class="stat"><span class="label">Received</span><b>${pkr(collected)}</b><span class="small muted">incl. tax deducted by tenants</span></div>
+   <div class="stat"><span class="label">Discounts</span><b>${pkr(T("rentDisc")+T("scDisc"))}</b><span class="small muted">each with a reason</span></div>
+   <div class="stat"><span class="label">Pending</span><b style="color:${pend?"var(--bad)":"inherit"}">${pkr(pend)}</b><span class="small muted">${isLate(ym)?"after the "+DUE_DAY+"th":"due by "+DUE_DAY+" "+fmtYM(ym)}</span></div></div>
+  ${ym<trackFrom()?`<div class="note info">Tracking starts from ${fmtYM(trackFrom())}. Change this under More.</div>`:""}
+  <div style="overflow-x:auto" class="panel" ><table class="tbl num"><thead><tr><th>Outlet</th><th>Rent due</th><th>Received</th><th>Status</th><th>Service due</th><th>Received</th><th>Status</th><th></th></tr></thead><tbody>
+  ${rows.map(r=>`<tr><td><button class="btn link" data-go-ag="${r.a.id}" style="padding:0">${esc(agTitle(r.a))}</button></td><td>${pkr(r.rentDue)}</td><td>${pkr(r.rentPaid)}${r.rentDisc?`<div class="small muted">+ ${pkr(r.rentDisc)} discount</div>`:""}</td><td>${stPill(r.rentSt)}</td>
+    <td>${r.scDue?pkr(r.scDue):'<span class="muted">'+(r.a.scMode==="included"?"In rent":"—")+"</span>"}</td><td>${r.scDue?pkr(r.scPaid):""}${r.scDisc?`<div class="small muted">+ ${pkr(r.scDisc)} discount</div>`:""}</td><td>${stPill(r.scSt)}</td>
+    <td><div class="row" style="flex-wrap:nowrap">${r.rentBal+r.scBal>0?`<button class="btn sm" data-act="remind" data-ag="${r.a.id}" data-ym="${ym}">Reminder</button>`:""}<button class="btn sm primary" data-act="add-pay" data-ag="${r.a.id}" data-ym="${ym}">+ Payment</button></div></td></tr>`).join("")||`<tr><td colspan="8" class="muted">No active agreements with rent for this month. Add agreements first.</td></tr>`}
+  </tbody></table></div>`;
+}
+
+/* photo: compress to max 1400px JPEG and keep in its own storage slot */
+function compressImage(file){return new Promise((res,rej)=>{const img=new Image();const url=URL.createObjectURL(file);
+  img.onload=()=>{const max=1400;let {width:w,height:h}=img;const k=Math.min(1,max/Math.max(w,h));w=Math.round(w*k);h=Math.round(h*k);
+    const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(c.toDataURL("image/jpeg",0.72))};
+  img.onerror=()=>{URL.revokeObjectURL(url);rej()};img.src=url})}
+const photoMem={};
+async function getPhoto(id){if(photoMem[id])return photoMem[id];const v=await Store.get("photo:"+id);if(v)photoMem[id]=v;return v}
+async function setPhoto(id,data){photoMem[id]=data;await Store.set("photo:"+id,data)}
+
+function splitRowHTML(s={}){return `<div class="splitrow"><select name="sa" aria-label="Account">${D.accounts.map(x=>`<option value="${x.id}" ${x.id===s.accountId?"selected":""}>${esc(acctHolderName(x))} · ${esc(x.bank||"")} ${esc((x.number||"").slice(-4))}</option>`).join("")}</select><input name="sv" inputmode="numeric" placeholder="Amount PKR" value="${esc(s.amount??"")}" aria-label="Amount"><button type="button" class="x" data-rm-split aria-label="Remove">✕</button>
+  <label class="given small" style="grid-column:1/-1"><input type="checkbox" name="sg" ${s.given?"checked":""}> Given to owner on <input type="date" name="sgd" value="${esc(s.givenDate||"")}" style="padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg)"></label></div>`}
+function formPay(id,presetAg,presetYM){
+  const ex=id?D.payments.find(x=>x.id===id):null;
+  const ags=D.agreements.filter(a=>(a.active&&!outlet(a.outletId)?.noRent)||a.id===ex?.agreementId);
+  if(!ags.length){openModal("Add an agreement first",`<p style="margin:0">Payments are recorded against an agreement, so the app knows what was due. Add the outlet's agreement in the Agreements tab first.</p>`);return}
+  const p=ex||{agreementId:presetAg||ags[0].id,month:presetYM||curYM(),date:todayISO(),rentAmount:"",taxAmount:"",scAmount:"",rentDiscount:"",rentDiscountReason:"",scDiscount:"",scDiscountReason:"",note:"",splits:[]};
+  let photoData=null,photoChanged=false;
+  openModal(id?"Edit payment":"New payment",`
+    <div class="field"><label>Photo of cheque, slip or transfer</label><div class="row"><label class="btn" for="f-photo">Take or choose photo</label><input id="f-photo" type="file" accept="image/*" capture="environment" hidden><span class="small muted" id="photo-st">${ex?.hasPhoto?"Photo saved":"No photo yet"}</span></div><img id="photo-prev" alt="Payment proof" style="max-height:180px;border-radius:8px;align-self:flex-start" hidden></div>
+    ${select("agreementId","Outlet / agreement",ags.map(a=>[a.id,agTitle(a)]),p.agreementId)}
+    <div class="grid2">${field("month","For month",p.month,{type:"month"})}${field("date","Date received",p.date,{type:"date"})}</div>
+    <div class="note info" id="due-box"></div>
+    <div class="grid2">${field("rentAmount","Rent received (PKR)",p.rentAmount,{mode:"numeric"})}${field("taxAmount","Tax deducted by tenant (PKR)",p.taxAmount,{mode:"numeric",hint:"Counts toward the rent. Your tax department handles it."})}</div>
+    <div id="scwrap2">${field("scAmount","Service charges received (PKR)",p.scAmount,{mode:"numeric"})}</div>
+    <div class="field"><label>Where the money landed</label><span class="hint">Split across as many accounts as needed. The split must add up to rent + service charges received.</span>
+      <div id="splits" style="display:flex;flex-direction:column;gap:8px"></div><div class="row"><button type="button" class="btn sm" data-add-split>+ Add account</button><span class="small" id="split-st"></span></div></div>
+    <details ${p.rentDiscount||p.scDiscount?"open":""}><summary style="cursor:pointer;font-weight:600">Discount this month</summary>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+      <div class="grid2">${field("rentDiscount","Rent discount (PKR)",p.rentDiscount,{mode:"numeric"})}${field("rentDiscountReason","Reason (required)",p.rentDiscountReason,{ph:"e.g. Lift out of order 5 days"})}</div>
+      <div class="grid2" id="scdisc">${field("scDiscount","Service charges discount (PKR)",p.scDiscount,{mode:"numeric"})}${field("scDiscountReason","Reason (required)",p.scDiscountReason)}</div></div></details>
+    ${area("note","Note",p.note)}
+    <div id="cautions" style="display:flex;flex-direction:column;gap:6px"></div>`,
+  {onSave:async()=>{
+    const agreementId=fv("agreementId"),month=fv("month");if(!month)return "Pick the month this payment is for.";
+    const n=k=>{const v=fnum(k);return v==null?0:v};
+    for(const k of ["rentAmount","taxAmount","scAmount","rentDiscount","scDiscount"]){const v=fnum(k);if(v!=null&&(isNaN(v)||v<0))return "Amounts must be numbers.";}
+    const a=D.agreements.find(x=>x.id===agreementId);const sep=a.scMode==="separate";
+    const rentAmount=n("rentAmount"),taxAmount=n("taxAmount"),scAmount=sep?n("scAmount"):0,rentDiscount=n("rentDiscount"),scDiscount=sep?n("scDiscount"):0;
+    if(rentAmount+taxAmount+scAmount+rentDiscount+scDiscount===0)return "Type the amount received.";
+    if(rentDiscount>0&&!fv("rentDiscountReason"))return "A rent discount needs a reason.";
+    if(scDiscount>0&&!fv("scDiscountReason"))return "A service charges discount needs a reason.";
+    const splits=readSplits();if(splits.some(s=>isNaN(s.amount)))return "Split amounts must be numbers.";
+    const splitTotal=splits.reduce((s,x)=>s+x.amount,0);const recv=rentAmount+scAmount;
+    if(recv>0&&!D.accounts.length)return "Add at least one bank account first (People → Bank accounts).";
+    if(recv>0&&splitTotal!==recv)return `The accounts add up to ${pkr(splitTotal)} but ${pkr(recv)} was received. Make them match.`;
+    const rec={agreementId,outletId:a.outletId,month,date:fv("date")||todayISO(),rentAmount,taxAmount,scAmount,rentDiscount,rentDiscountReason:rentDiscount?fv("rentDiscountReason"):"",scDiscount,scDiscountReason:scDiscount?fv("scDiscountReason"):"",note:fv("note"),splits:splits.filter(s=>s.amount>0),updatedAt:now()};
+    let t;if(ex){t=Object.assign(ex,rec)}else{t={id:uid("pay"),createdAt:now(),hasPhoto:false,...rec};D.payments.push(t)}
+    if(photoChanged&&photoData){await setPhoto(t.id,photoData);t.hasPhoto=true}
+    await persist();toast("Payment saved");return true;},
+   onDelete:id?()=>confirmBox("Delete this payment? The month will show as unpaid again.","Delete",async()=>{D.payments=D.payments.filter(x=>x.id!==id);await Store.set("photo:"+id,null);delete photoMem[id];await persist();toast("Payment deleted")}):null});
+  const sp=$("#splits");
+  function readSplits(){return [...sp.querySelectorAll(".splitrow")].map(r=>({accountId:r.querySelector('[name="sa"]').value,amount:Number((r.querySelector('[name="sv"]').value||"0").replace(/,/g,"")),given:r.querySelector('[name="sg"]').checked,givenDate:r.querySelector('[name="sgd"]').value}))}
+  const fill=()=>{
+    const a=D.agreements.find(x=>x.id===fv("agreementId"));const ym=fv("month");if(!a)return;
+    const sep=a.scMode==="separate";$("#scwrap2").hidden=!sep;$("#scdisc").hidden=!sep;
+    const r=dueRow(a,ym);const others=r.ps.filter(x=>x.id!==id);const sumO=f=>others.reduce((s,x)=>s+(Number(x[f])||0),0);
+    const prevRent=sumO("rentAmount")+sumO("taxAmount")+sumO("rentDiscount"),prevSc=sumO("scAmount")+sumO("scDiscount");
+    $("#due-box").innerHTML=`<b>${fmtYM(ym)}</b>: rent due ${pkr(r.rentDue)}${prevRent?`, ${pkr(prevRent)} already covered`:""}${sep?`. Service charges due ${pkr(r.scDue)}${prevSc?`, ${pkr(prevSc)} already covered`:""}`:a.scMode==="included"?". Service charges are included in rent":""}. Due by ${DUE_DAY} ${fmtYM(ym)}.`;
+    return {a,r,prevRent,prevSc,sep};
+  };
+  const check=()=>{
+    const ctx=fill();if(!ctx)return;const {a,r,prevRent,prevSc,sep}=ctx;
+    const n=k=>{const v=Number((fv(k)||"0").replace(/,/g,""));return isNaN(v)?0:v};
+    const rentCover=n("rentAmount")+n("taxAmount")+n("rentDiscount")+prevRent;const scCover=sep?n("scAmount")+n("scDiscount")+prevSc:0;
+    const recv=n("rentAmount")+(sep?n("scAmount"):0);const splits=readSplits();const st=splits.reduce((s,x)=>s+(x.amount||0),0);
+    $("#split-st").innerHTML=recv?(st===recv?'<span style="color:var(--ok)">Split matches</span>':`<span style="color:var(--bad)">Split ${pkr(st)} of ${pkr(recv)}</span>`):"";
+    const c=[];
+    if(r.rentDue&&rentCover<r.rentDue)c.push(`Rent short by ${pkr(r.rentDue-rentCover)}. The red dot stays until the rest is received or a discount with a reason covers it.`);
+    if(rentCover>r.rentDue)c.push(`Rent is ${pkr(rentCover-r.rentDue)} more than due for this month.`);
+    if(sep&&r.scDue&&scCover<r.scDue)c.push(`Service charges short by ${pkr(r.scDue-scCover)}.`);
+    if(sep&&scCover>r.scDue)c.push(`Service charges are ${pkr(scCover-r.scDue)} more than due.`);
+    if(n("rentDiscount")>0&&!fv("rentDiscountReason"))c.push("Rent discount has no reason yet.");
+    if(sep&&n("scDiscount")>0&&!fv("scDiscountReason"))c.push("Service charges discount has no reason yet.");
+    const expected=new Set([...(a.rentAccountIds||[]),...(a.scAccountIds||[])]);
+    const odd=splits.filter(s=>s.amount>0&&expected.size&&!expected.has(s.accountId));
+    if(odd.length)c.push(`Money landed in an account not set for this outlet: ${odd.map(s=>{const x=D.accounts.find(y=>y.id===s.accountId);return esc(acctHolderName(x))+" "+esc(x?.bank||"")}).join(", ")}.`);
+    $("#cautions").innerHTML=c.map(t=>`<div class="note">${t}</div>`).join("");
+  };
+  const initSplits=()=>{
+    sp.innerHTML="";const a=D.agreements.find(x=>x.id===fv("agreementId"));
+    if(ex&&ex.splits.length)ex.splits.forEach(s=>sp.insertAdjacentHTML("beforeend",splitRowHTML(s)));
+    else if(D.accounts.length)sp.insertAdjacentHTML("beforeend",splitRowHTML({accountId:(a?.rentAccountIds||[])[0]}));
+    else sp.innerHTML='<span class="small muted">No bank accounts yet. Add them under People → Bank accounts.</span>';
+  };
+  initSplits();check();
+  if(ex?.hasPhoto)getPhoto(ex.id).then(d=>{if(d){$("#photo-prev").src=d;$("#photo-prev").hidden=false}});
+  $("#mform").addEventListener("input",check);
+  $("#mform").addEventListener("change",e=>{if(e.target.name==="agreementId"&&!ex)initSplits();check()});
+  $("#splits").addEventListener("click",()=>setTimeout(check,0));
+  $("#f-photo").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;$("#photo-st").textContent="Preparing photo…";
+    try{photoData=await compressImage(f);photoChanged=true;$("#photo-prev").src=photoData;$("#photo-prev").hidden=false;$("#photo-st").textContent="Photo ready"}catch(err){$("#photo-st").textContent="Could not read that photo. Try another."}});
+}
+async function viewPay(id){
+  const p=D.payments.find(x=>x.id===id);if(!p)return;const a=D.agreements.find(x=>x.id===p.agreementId);
+  openModal("Payment",`
+    <div id="pv-photo" class="small muted">${p.hasPhoto?"Loading photo…":"No photo attached."}</div>
+    <dl class="kv num"><dt>Outlet</dt><dd>${esc(a?agTitle(a):"—")}</dd><dt>For month</dt><dd>${fmtYM(p.month)}</dd><dt>Received on</dt><dd>${fmtDate(p.date)}</dd>
+    <dt>Rent received</dt><dd>${pkr(p.rentAmount)}</dd>${p.taxAmount?`<dt>Tax deducted</dt><dd>${pkr(p.taxAmount)}</dd>`:""}${p.scAmount?`<dt>Service charges</dt><dd>${pkr(p.scAmount)}</dd>`:""}
+    ${p.rentDiscount?`<dt>Rent discount</dt><dd>${pkr(p.rentDiscount)} · ${esc(p.rentDiscountReason)}</dd>`:""}${p.scDiscount?`<dt>Service discount</dt><dd>${pkr(p.scDiscount)} · ${esc(p.scDiscountReason)}</dd>`:""}
+    <dt>Landed in</dt><dd>${(p.splits||[]).map(s=>{const x=D.accounts.find(y=>y.id===s.accountId);return `<div>${pkr(s.amount)} → ${x?esc(acctHolderName(x))+", "+acctLine(x):"deleted account"}${s.given?` <span class="pill st-Rented">Given to owner${s.givenDate?" "+fmtDate(s.givenDate):""}</span>`:""}</div>`}).join("")||"—"}</dd>
+    <dt>Note</dt><dd>${esc(p.note)||"—"}</dd></dl>`,{onSave:async()=>{closeModal();formPay(id);return false},saveLabel:"Edit"});
+  if(p.hasPhoto){const d=await getPhoto(id);const el=$("#pv-photo");if(el)el.innerHTML=d?`<img src="${d}" alt="Payment proof" style="max-height:320px;border-radius:8px">`:"Photo not found on this device."}
+}
+
+/* tiny offline .xlsx writer: one sheet, inline strings, uncompressed zip */
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=u=>{let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC_T[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0};
+function zipStore(files){const enc=new TextEncoder();const parts=[],cent=[];let off=0;
+  for(const [name,txt] of files){const nb=enc.encode(name),db=enc.encode(txt),crc=crc32(db);
+    const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint32(14,crc,true);h.setUint32(18,db.length,true);h.setUint32(22,db.length,true);h.setUint16(26,nb.length,true);
+    parts.push(new Uint8Array(h.buffer),nb,db);
+    const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint32(16,crc,true);c.setUint32(20,db.length,true);c.setUint32(24,db.length,true);c.setUint16(28,nb.length,true);c.setUint32(42,off,true);
+    cent.push(new Uint8Array(c.buffer),nb);off+=30+nb.length+db.length}
+  const cs=cent.reduce((s,x)=>s+x.length,0);const e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cs,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...cent,new Uint8Array(e.buffer)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}
+function makeXlsx(sheetName,aoa,widths){
+  const x=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"");
+  const col=i=>{let s="";i++;while(i){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
+  const rows=aoa.map((r,ri)=>`<row r="${ri+1}">${r.map((v,ci)=>{const ref=col(ci)+(ri+1);if(v===""||v==null)return "";
+    const st=ri===2?' s="1"':(ri===0?' s="2"':"");
+    return typeof v==="number"&&isFinite(v)?`<c r="${ref}"${st||' s="3"'}><v>${v}</v></c>`:`<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${x(v)}</t></is></c>`}).join("")}</row>`).join("");
+  const cols=widths?`<cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>`:"";
+  return zipStore([
+   ["[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],
+   ["_rels/.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+   ["xl/workbook.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${x(sheetName.replace(/[\\\/?*\[\]:]/g," ").slice(0,31))}" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+   ["xl/_rels/workbook.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+   ["xl/styles.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCEBE8"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`],
+   ["xl/worksheets/sheet1.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${cols}<sheetData>${rows}</sheetData></worksheet>`]
+  ]);
+}
+
+/* ---------- reports and exports (step 4) ---------- */
+const agFloorMatch=(a,fl)=>fl==="all"||(a.unitIds||[]).some(u=>unit(u)?.floor===fl);
+const monthsRange=(f,t)=>{const o=[];let m=f,n=0;while(m<=t&&n<240){o.push(m);m=ymAdd(m,1);n++}return o};
+const REPORTS=[
+ {id:"rent",name:"Monthly rent collection",desc:"Who paid, who did not, how much is pending",filters:["range","floor","outlet"],build:f=>{
+   const rows=[];D.agreements.filter(a=>!outlet(a.outletId)?.noRent&&agFloorMatch(a,f.floor)&&(f.outlet==="all"||a.outletId===f.outlet)).forEach(a=>monthsRange(f.from,f.to).forEach(ym=>{if(!agMonths(a).includes(ym))return;const r=dueRow(a,ym);if(!r.rentDue)return;
+     rows.push([fmtYM(ym),outlet(a.outletId)?.name,a.unitIds.join(" + "),r.rentDue,r.rentPaid,r.rentDisc,r.rentBal,ST_LABEL[r.rentSt]])}));
+   return {cols:["Month","Outlet","Units","Rent due","Received (incl. tax)","Discount","Pending","Status"],money:[3,4,5,6],rows,sum:[3,4,5,6]}}},
+ {id:"sc",name:"Service charges collection",desc:"Who paid, who is late, total collected",filters:["range","floor","outlet"],build:f=>{
+   const rows=[];D.agreements.filter(a=>a.scMode==="separate"&&agFloorMatch(a,f.floor)&&(f.outlet==="all"||a.outletId===f.outlet)).forEach(a=>monthsRange(f.from,f.to).forEach(ym=>{if(!agMonths(a).includes(ym))return;const r=dueRow(a,ym);if(!r.scDue)return;
+     rows.push([fmtYM(ym),outlet(a.outletId)?.name,a.unitIds.join(" + "),r.scDue,r.scPaid,r.scDisc,r.scBal,ST_LABEL[r.scSt]])}));
+   return {cols:["Month","Outlet","Units","Service due","Received","Discount","Pending","Status"],money:[3,4,5,6],rows,sum:[3,4,5,6]}}},
+ {id:"late",name:"Late list",desc:"Who is late after the 10th, by how many days and how much",filters:[],build:()=>{
+   const rows=lateItems().map(x=>[outlet(x.r.a.outletId)?.name,x.r.a.unitIds.join(" + "),x.kind,fmtYM(x.r.ym),x.days,x.bal]);
+   return {cols:["Outlet","Units","What","Month","Days late","Pending"],money:[5],rows,sum:[5]}}},
+ {id:"occ",name:"Occupancy",desc:"How many units are rented and how many remain",filters:["floor"],build:f=>{
+   const us=D.units.filter(u=>f.floor==="all"||u.floor===f.floor);
+   const rows=FLOORS.filter(fl=>f.floor==="all"||fl.key===f.floor).map(fl=>{const x=us.filter(u=>u.floor===fl.key);const c=s=>x.filter(u=>u.status===s).length;
+     return [fl.name,x.length,c("Rented"),c("Vacant"),c("Owner-occupied"),c("Reserved"),c("Sold"),x.filter(u=>u.status==="Vacant").map(u=>u.id).join(", ")]});
+   return {cols:["Floor","Units","Rented","Vacant","Owner-occupied","Reserved","Sold","Vacant units"],rows,sum:[1,2,3,4,5,6]}}},
+ {id:"rates",name:"Units and rates",desc:"Size, sale price, rent and service charges of every unit",filters:["floor"],build:f=>{
+   const rows=D.units.filter(u=>f.floor==="all"||u.floor===f.floor).map(u=>[u.id,floorOf(u.floor).name,u.size||"",u.saleRate||"",u.rentRate||"",u.serviceCharges||"",u.status,activeOutletOf(u.id)?.name||""]);
+   return {cols:["Unit","Floor","Sq ft","Sale price","Asking rent / month","Service charges / month","Status","Outlet"],money:[3,4,5],rows}}},
+ {id:"owners",name:"Owners register",desc:"Who owns each shop, with bank accounts",filters:["floor"],build:f=>{
+   const rows=[];D.owners.forEach(o=>(o.units||[]).filter(x=>f.floor==="all"||unit(x.unitId)?.floor===f.floor).forEach(x=>rows.push([x.unitId,o.name,x.share?x.share+"%":"",o.phone,o.cnic,acctsOfOwner(o.id).map(a=>`${a.bank} ${a.title} ${a.number}`).join("; ")])));
+   rows.sort((a,b)=>unitSort(a[0],b[0]));
+   return {cols:["Unit","Owner","Share","Phone","CNIC","Bank accounts"],rows}}},
+ {id:"outlets",name:"Outlets and tenants register",desc:"Who runs each outlet and who the tenants are",filters:["floor"],build:f=>{
+   const rows=[];D.outlets.filter(o=>f.floor==="all"||o.unitIds.some(u=>unit(u)?.floor===f.floor)).forEach(o=>{const ts=tenantsOf(o.id);const base=[o.name,o.unitIds.slice().sort(unitSort).join(" + "),o.active?"Active":"Closed",o.business];
+     if(!ts.length)rows.push([...base,"","","",""]);else ts.forEach(t=>rows.push([...base,t.name,t.role,t.phone,t.cnic]))});
+   return {cols:["Outlet","Units","Status","Business","Tenant","Role","Phone","CNIC"],rows}}},
+ {id:"accounts",name:"Collections by account",desc:"How much went into each account, by month",filters:["range","account"],build:f=>{
+   const map={};D.payments.filter(p=>p.month>=f.from&&p.month<=f.to).forEach(p=>(p.splits||[]).forEach(s=>{if(f.account!=="all"&&s.accountId!==f.account)return;const k=s.accountId+"|"+p.month;map[k]=map[k]||{acc:s.accountId,ym:p.month,amt:0,given:0};map[k].amt+=s.amount;if(s.given)map[k].given+=s.amount}));
+   const rows=Object.values(map).sort((a,b)=>a.ym.localeCompare(b.ym)).map(x=>{const a=D.accounts.find(y=>y.id===x.acc);return [fmtYM(x.ym),a?acctHolderName(a):"Deleted account",a?`${a.bank} ${a.number}`:"",x.amt,x.given]});
+   return {cols:["Month","Account holder","Bank / number","Received","Given to owner"],money:[3,4],rows,sum:[3,4]}}},
+ {id:"disc",name:"Discounts given",desc:"Discounts by month with reasons",filters:["range","outlet"],build:f=>{
+   const rows=[];D.payments.filter(p=>p.month>=f.from&&p.month<=f.to&&(f.outlet==="all"||p.outletId===f.outlet)).forEach(p=>{const o=outlet(p.outletId)?.name;
+     if(p.rentDiscount)rows.push([fmtYM(p.month),o,"Rent",p.rentDiscount,p.rentDiscountReason]);if(p.scDiscount)rows.push([fmtYM(p.month),o,"Service charges",p.scDiscount,p.scDiscountReason])});
+   return {cols:["Month","Outlet","On","Discount","Reason"],money:[3],rows,sum:[3]}}},
+ {id:"tax",name:"Tax deducted",desc:"Tax amounts recorded per payment",filters:["range","outlet"],build:f=>{
+   const rows=D.payments.filter(p=>p.taxAmount&&p.month>=f.from&&p.month<=f.to&&(f.outlet==="all"||p.outletId===f.outlet)).map(p=>[fmtYM(p.month),fmtDate(p.date),outlet(p.outletId)?.name,p.rentAmount,p.taxAmount,(+p.rentAmount||0)+(+p.taxAmount||0)]);
+   return {cols:["Month","Received on","Outlet","Rent received","Tax deducted","Gross rent"],money:[3,4,5],rows,sum:[3,4,5]}}},
+ {id:"renew",name:"Renewals due",desc:"Agreements renewing in 30, 60 or 90 days",filters:["days"],build:f=>{
+   const rows=D.agreements.filter(a=>a.active&&a.nextRenewal&&daysBetween(todayISO(),a.nextRenewal)<=Number(f.days)).sort((a,b)=>a.nextRenewal.localeCompare(b.nextRenewal)).map(a=>{const d=daysBetween(todayISO(),a.nextRenewal);
+     return [outlet(a.outletId)?.name,a.unitIds.join(" + "),fmtDate(a.nextRenewal),d<0?`${-d} days overdue`:`in ${d} days`,currentRent(a),a.increasePct+"%",Math.round(currentRent(a)*(1+(+a.increasePct||0)/100))]});
+   return {cols:["Outlet","Units","Renewal date","When","Current rent","Increase","Proposed rent"],money:[4,6],rows}}},
+];
+let repState={id:null,f:null,hidden:[]};
+function defaultFilters(){const t=curYM();return {from:ymAdd(t,-2)<trackFrom()?trackFrom():ymAdd(t,-2),to:t,floor:"all",outlet:"all",account:"all",days:"30"}}
+function viewReports(){
+  if(repState.id)return viewReport();
+  const saved=D.meta.savedReports||[];
+  return `<div class="page-head"><div><div class="label">Filter, then export to Excel, Google Sheets or Word</div><h1>Reports</h1></div></div>
+  ${saved.length?`<section class="panel"><h2 style="margin-bottom:10px">My saved reports</h2><div class="chips">${saved.map((s,i)=>`<span class="row" style="gap:2px"><button class="chip" data-open-saved="${i}">${esc(s.name)}</button><button class="btn link sm" data-del-saved="${i}" aria-label="Remove ${esc(s.name)}">✕</button></span>`).join("")}</div></section>`:""}
+  <div class="list">${REPORTS.map(r=>`<button class="item" data-open-rep="${r.id}"><div class="grow"><div class="t">${esc(r.name)}</div><div class="s">${esc(r.desc)}</div></div><span class="muted">›</span></button>`).join("")}</div>
+`;
+}
+function runReport(){const def=REPORTS.find(r=>r.id===repState.id);const out=def.build(repState.f);const keep=out.cols.map((_,i)=>!repState.hidden.includes(i));return {def,out,keep}}
+function viewReport(){
+  const {def,out,keep}=runReport();const f=repState.f;
+  const fmt=(v,i)=>(out.money||[]).includes(i)&&v!==""&&v!=null?pkr(v):esc(v??"");
+  const sums=out.sum?out.cols.map((_,i)=>out.sum.includes(i)?out.rows.reduce((s,r)=>s+(Number(r[i])||0),0):null):null;
+  const fl=def.filters;
+  return `<div><button class="btn link" data-rep-back>← Reports</button></div>
+  <div class="page-head"><div><div class="label">${out.rows.length} row${out.rows.length===1?"":"s"}</div><h1>${esc(def.name)}</h1></div>
+   <div class="row"><button class="btn primary" data-export="xlsx">Excel</button><button class="btn" data-export="sheets">Google Sheets</button><button class="btn" data-export="doc">Word / Doc</button><button class="btn" data-export="csv">CSV</button></div></div>
+  ${fl.length?`<section class="panel"><div class="row" style="align-items:flex-end">
+    ${fl.includes("range")?`<div class="field" style="width:auto"><label for="rf-from">From</label><input id="rf-from" type="month" value="${f.from}" data-rf="from"></div><div class="field" style="width:auto"><label for="rf-to">To</label><input id="rf-to" type="month" value="${f.to}" data-rf="to"></div>`:""}
+    ${fl.includes("floor")?`<div class="field" style="width:auto"><label for="rf-floor">Floor</label><select id="rf-floor" data-rf="floor"><option value="all">All floors</option>${FLOORS.map(x=>`<option value="${x.key}" ${f.floor===x.key?"selected":""}>${x.name}</option>`).join("")}</select></div>`:""}
+    ${fl.includes("outlet")?`<div class="field" style="width:auto"><label for="rf-outlet">Outlet</label><select id="rf-outlet" data-rf="outlet"><option value="all">All outlets</option>${D.outlets.map(o=>`<option value="${o.id}" ${f.outlet===o.id?"selected":""}>${esc(o.name)}</option>`).join("")}</select></div>`:""}
+    ${fl.includes("account")?`<div class="field" style="width:auto"><label for="rf-account">Account</label><select id="rf-account" data-rf="account"><option value="all">All accounts</option>${D.accounts.map(a=>`<option value="${a.id}" ${f.account===a.id?"selected":""}>${esc(acctHolderName(a))} · ${esc(a.bank)}</option>`).join("")}</select></div>`:""}
+    ${fl.includes("days")?`<div class="field" style="width:auto"><label for="rf-days">Within</label><select id="rf-days" data-rf="days">${["30","60","90"].map(d=>`<option ${f.days===d?"selected":""} value="${d}">${d} days</option>`).join("")}</select></div>`:""}
+  </div></section>`:""}
+  <details class="panel"><summary style="cursor:pointer;font-weight:600">Choose columns and save as my report</summary>
+    <div class="chips" style="margin-top:10px">${out.cols.map((c,i)=>`<button class="chip" data-col="${i}" aria-pressed="${keep[i]}">${esc(c)}</button>`).join("")}</div>
+    <div class="row" style="margin-top:10px"><input id="save-name" placeholder="Name, e.g. Ground floor rent" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);flex:1;min-width:0"><button class="btn" data-save-rep>Save</button></div></details>
+  <div class="panel" style="overflow-x:auto"><table class="tbl num"><thead><tr>${out.cols.map((c,i)=>keep[i]?`<th>${esc(c)}</th>`:"").join("")}</tr></thead><tbody>
+   ${out.rows.map(r=>`<tr>${r.map((v,i)=>keep[i]?`<td>${fmt(v,i)}</td>`:"").join("")}</tr>`).join("")||`<tr><td colspan="${out.cols.length}" class="muted">Nothing to show for these filters.</td></tr>`}
+   ${sums&&out.rows.length?`<tr class="total">${sums.map((v,i)=>keep[i]?`<td>${i===0?"<b>Total</b>":v==null?"":"<b>"+fmt(v,i)+"</b>"}</td>`:"").join("")}</tr>`:""}
+  </tbody></table></div>`;
+}
+function reportMatrix(){const {def,out,keep}=runReport();const cols=out.cols.filter((_,i)=>keep[i]);const rows=out.rows.map(r=>r.filter((_,i)=>keep[i]));
+  if(out.sum&&out.rows.length){const t=out.cols.map((_,i)=>i===0?"Total":out.sum.includes(i)?out.rows.reduce((s,r)=>s+(Number(r[i])||0),0):"");rows.push(t.filter((_,i)=>keep[i]))}
+  return {def,cols,rows}}
+function fileName(ext){return `Orion-${repState.id}-${todayISO()}.${ext}`}
+function saveBlob(blob,name){try{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},800);toast("Saved "+name)}catch(e){toast("Download is blocked here. Use Google Sheets (copy) instead.")}}
+async function exportReport(kind){
+  const {def,cols,rows}=reportMatrix();
+  const title=`${def.name} · Orion Tower, Bahawalpur`;
+  if(kind==="sheets"){const tsv=[cols,...rows].map(r=>r.map(v=>String(v??"").replace(/\t|\n/g," ")).join("\t")).join("\n");
+    try{await navigator.clipboard.writeText(tsv);openModal("Copied for Google Sheets",`<p style="margin:0">The table is copied. Open <b>sheets.new</b> in your browser, click cell A1 and paste. Automatic sync to your own Google Sheet comes after you approve the Google connection.</p>`)}
+    catch(e){openModal("Copy for Google Sheets",`<p class="small muted" style="margin:0">Select all, copy, then paste into cell A1 of a Google Sheet.</p><textarea style="min-height:220px;width:100%">${esc(tsv)}</textarea>`)}return}
+  if(kind==="csv"){const csv=[cols,...rows].map(r=>r.map(v=>{const s=String(v??"");return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s}).join(",")).join("\r\n");saveBlob(new Blob(["﻿"+csv],{type:"text/csv"}),fileName("csv"));return}
+  if(kind==="doc"){const html=`<html><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font-family:Calibri,Arial,sans-serif}table{border-collapse:collapse}td,th{border:1px solid #999;padding:4px 8px;font-size:10pt}th{background:#e6efed}</style></head><body><h2>${esc(def.name)}</h2><p>Orion Tower, Bahawalpur · prepared ${fmtDate(todayISO())}</p><table><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr>${rows.map(r=>`<tr>${r.map(v=>`<td>${esc(typeof v==="number"?v.toLocaleString("en-PK"):v)}</td>`).join("")}</tr>`).join("")}</table></body></html>`;
+    saveBlob(new Blob(["﻿"+html],{type:"application/msword"}),fileName("doc"));return}
+  saveBlob(makeXlsx(def.name,[[title],[],cols,...rows],cols.map(c=>Math.max(12,c.length+3))),fileName("xlsx"));
+}
+
+/* ---------- operations (step 5): lifts, petty cash, cleaning, to-do, documents, staff ---------- */
+const LIFTS=[["L1","Lift 1"],["L2","Lift 2"]];
+const LIFT_DAY=25;
+const EXP_CATS=["Electricity","Generator fuel","Lift","Cleaning supplies","Repairs and maintenance","Water","Security","Staff (misc.)","Stationery and printing","Other"];
+const CLEAN_AREAS=["Main entrance","Ground floor corridor","First floor corridor","Second floor corridor","Stairs","Lifts","Washrooms","Basement / LG","Rooftop","Parking","Outside frontage"];
+const DOC_CATS=["Agreement","NOC","Payment plan","CNIC copy","Lift report","Bill","Photo","Video","Other"];
+const PRI=["High","Medium","Low"];
+async function setFile(id,data){await Store.set("file:"+id,data)}
+async function getFile(id){return await Store.get("file:"+id)}
+const staffName=id=>D.staff.find(s=>s.id===id)?.name||"";
+function liftStatus(ym){ym=ym||curYM();return LIFTS.map(([k,l])=>{const v=D.lifts.filter(x=>x.lift===k&&ymOf(x.date)===ym).sort((a,b)=>b.date.localeCompare(a.date));
+  const missing=!v.length&&ym===curYM()&&Number(todayISO().slice(8))>LIFT_DAY;const pastMissing=!v.length&&ym<curYM();return {k,l,v,missing:missing||pastMissing}})}
+const pettyBalance=()=>D.petty.reduce((s,x)=>s+(x.type==="in"?1:-1)*(Number(x.amount)||0),0);
+const overdueTasks=()=>D.tasks.filter(t=>!t.done&&t.due&&t.due<todayISO());
+let opsTab="lifts",showSalary=false;
+function viewOps(){
+  const T=[["lifts","Lift visits"],["petty","Petty cash"],["cleaning","Cleaning log"],["tasks","To-do"],["docs","Documents"],["staff","Staff"]];
+  const head=(btn)=>`<div class="page-head"><div><div class="label">Plaza operations</div><h1>Ops</h1></div>${btn}</div>
+   <div class="seg" role="group" aria-label="Show">${T.map(([k,l])=>`<button aria-pressed="${opsTab===k}" data-otab="${k}">${l}${k==="tasks"&&overdueTasks().length?' <span class="pill dot bad" style="padding:0 6px">'+overdueTasks().length+"</span>":""}${k==="lifts"&&liftStatus().some(x=>x.missing)?' <span class="pill dot bad" style="padding:0 6px">!</span>':""}</button>`).join("")}</div>`;
+  if(opsTab==="lifts"){
+    const months=[...new Set([curYM(),...D.lifts.map(x=>ymOf(x.date))])].sort().reverse();
+    return head(`<button class="btn primary" data-act="add-lift">+ Lift visit</button>`)+`
+    <section class="panel"><div class="sec-head"><h2>${fmtYM(curYM())}</h2><span class="small muted">Royal Elevator · visit needed by the ${LIFT_DAY}th</span></div>
+     <div class="two">${liftStatus().map(x=>`<div class="acct"><div><div style="font-weight:600">${x.l}</div><div class="small ${x.missing?"":"muted"}" style="${x.missing?"color:var(--bad)":""}">${x.v.length?`Visited ${fmtDate(x.v[0].date)}${x.v[0].issue?" · issue reported":""}`:x.missing?`No visit recorded, ${LIFT_DAY}th has passed`:`No visit yet. Due by ${LIFT_DAY} ${fmtYM(curYM())}`}</div></div>${x.v.length?'<span class="pill st-Rented">Done</span>':x.missing?'<span class="pill dot bad">Missing</span>':'<span class="pill st-Vacant">Due</span>'}</div>`).join("")}</div></section>
+    <div class="list">${D.lifts.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(v=>`<button class="item" data-act="edit-lift" data-id="${v.id}"><div class="avatar">${v.lift}</div><div class="grow"><div class="t">${LIFTS.find(x=>x[0]===v.lift)[1]} · ${fmtDate(v.date)}</div><div class="s">${esc(v.tech||"Royal Elevator")}${v.remarks?" · "+esc(v.remarks):""}${v.hasPhoto?" · report photo":""}</div></div>${v.issue?'<span class="pill st-Reserved">Issue</span>':""}</button>`).join("")||'<div class="empty">No lift visits recorded yet.</div>'}</div>`;
+  }
+  if(opsTab==="petty"){
+    const bal=pettyBalance();const ym=curYM();const mo=D.petty.filter(x=>ymOf(x.date)===ym);const sum=t=>mo.filter(x=>x.type===t).reduce((s,x)=>s+(+x.amount||0),0);
+    return head(`<div class="row"><button class="btn" data-act="add-petty" data-type="in">+ Cash in</button><button class="btn primary" data-act="add-petty" data-type="out">+ Expense</button></div>`)+`
+    <div class="stats"><div class="stat"><span class="label">Cash in hand</span><b style="color:${bal<0?"var(--bad)":"inherit"}">${pkr(bal)}</b></div><div class="stat"><span class="label">Cash in · ${fmtYM(ym)}</span><b>${pkr(sum("in"))}</b></div><div class="stat"><span class="label">Spent · ${fmtYM(ym)}</span><b>${pkr(sum("out"))}</b></div></div>
+    <div class="list">${D.petty.slice().sort((a,b)=>b.date.localeCompare(a.date)||(b.createdAt||"").localeCompare(a.createdAt||"")).map(x=>`<button class="item" data-act="edit-petty" data-id="${x.id}"><div class="avatar" style="color:${x.type==="in"?"var(--ok)":"var(--bad)"}">${x.type==="in"?"In":"Out"}</div><div class="grow"><div class="t">${esc(x.type==="in"?(x.desc||"Cash received"):x.category)}</div><div class="s">${fmtDate(x.date)}${x.type==="out"&&x.desc?" · "+esc(x.desc):""}${x.hasPhoto?" · bill photo":""}</div></div><b class="num" style="color:${x.type==="in"?"var(--ok)":"inherit"}">${x.type==="in"?"+":"−"} ${pkr(x.amount)}</b></button>`).join("")||'<div class="empty">No entries yet. Start with “+ Cash in” for the cash you have now.</div>'}</div>`;
+  }
+  if(opsTab==="cleaning"){
+    return head(`<button class="btn primary" data-act="add-clean">+ Cleaning entry</button>`)+`
+    <div class="list">${D.cleaning.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(c=>`<button class="item" data-act="edit-clean" data-id="${c.id}"><div class="avatar">${esc(initials(staffName(c.staffId)||c.staffName||"?"))}</div><div class="grow"><div class="t">${fmtDate(c.date)} · ${esc(staffName(c.staffId)||c.staffName||"Staff")}</div><div class="s">${esc((c.areas||[]).join(", "))}${c.remarks?" · "+esc(c.remarks):""}</div></div>${c.present===false?'<span class="pill closed">Absent</span>':""}</button>`).join("")||'<div class="empty">No cleaning duty recorded yet.</div>'}</div>`;
+  }
+  if(opsTab==="tasks"){
+    const open=D.tasks.filter(t=>!t.done).sort((a,b)=>(a.due||"9").localeCompare(b.due||"9")||PRI.indexOf(a.priority)-PRI.indexOf(b.priority));const done=D.tasks.filter(t=>t.done).sort((a,b)=>(b.doneOn||"").localeCompare(a.doneOn||""));
+    const row=t=>{const od=!t.done&&t.due&&t.due<todayISO();return `<div class="item"><input type="checkbox" data-task-done="${t.id}" ${t.done?"checked":""} aria-label="Mark done" style="width:20px;height:20px;flex:none"><button class="grow" data-act="edit-task" data-id="${t.id}" style="border:0;background:none;text-align:left;cursor:pointer;padding:0"><div class="t" style="${t.done?"text-decoration:line-through;color:var(--muted)":""}">${esc(t.title)}</div><div class="s">${t.due?(od?`<span style="color:var(--bad)">Overdue since ${fmtDate(t.due)}</span>`:"Due "+fmtDate(t.due)):"No due date"}${t.unitId?" · "+esc(t.unitId):""}</div></button>${!t.done?`<span class="pill ${t.priority==="High"?"bad":t.priority==="Medium"?"st-Reserved":"st-Vacant"}">${t.priority}</span>`:""}</div>`};
+    return head(`<button class="btn primary" data-act="add-task">+ Task</button>`)+`<div class="list">${open.map(row).join("")||'<div class="empty">Nothing on the list.</div>'}</div>${done.length?`<details><summary style="cursor:pointer;font-weight:600">Done (${done.length})</summary><div class="list" style="margin-top:8px">${done.slice(0,50).map(row).join("")}</div></details>`:""}`;
+  }
+  if(opsTab==="docs"){
+    return head(`<button class="btn primary" data-act="add-doc">+ Document</button>`)+`
+    <div class="list">${D.docs.slice().sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||"")).map(d=>`<button class="item" data-act="view-doc" data-id="${d.id}"><div class="avatar">${esc((d.fileName||"").split(".").pop().slice(0,4).toUpperCase()||"DOC")}</div><div class="grow"><div class="t">${esc(d.title)}</div><div class="s">${esc(d.category)}${d.unitId?" · "+esc(d.unitId):""}${d.link?" · "+esc(d.link):""} · ${(d.size/1024/1024).toFixed(1)} MB</div></div></button>`).join("")||'<div class="empty">No documents yet. Add agreements, NOCs, payment plans, CNIC copies or videos.</div>'}</div>
+    <p class="small muted" style="margin:0">Files stay on this device for now. They will be copied to your Google Drive once you approve the Google connection.</p>`;
+  }
+  return head(`<div class="row"><button class="btn" data-toggle-salary>${showSalary?"Hide salaries":"Show salaries"}</button><button class="btn primary" data-act="add-staff">+ Staff member</button></div>`)+`
+    <div class="note info">Records only. Head office pays salaries. Salary figures are hidden until you tap “Show salaries”.</div>
+    <div class="list">${D.staff.slice().sort((a,b)=>(b.active!==false)-(a.active!==false)||a.name.localeCompare(b.name)).map(s=>`<button class="item" data-act="edit-staff" data-id="${s.id}"><div class="avatar">${esc(initials(s.name))}</div><div class="grow"><div class="t">${esc(s.name)}</div><div class="s num">${esc(s.role)||"Staff"}${s.phone?" · "+esc(s.phone):""}${s.joined?" · since "+fmtDate(s.joined):""}</div></div>${s.active===false?'<span class="pill closed">Left</span>':""}<b class="num">${showSalary?pkr(s.salary):"••••"}</b></button>`).join("")||'<div class="empty">No staff records yet.</div>'}</div>`;
+}
+function photoField(label,has){return `<div class="field"><label>${label}</label><div class="row"><label class="btn" for="f-photo">Take or choose photo</label><input id="f-photo" type="file" accept="image/*" capture="environment" hidden><span class="small muted" id="photo-st">${has?"Photo saved":"No photo yet"}</span></div><img id="photo-prev" alt="" style="max-height:180px;border-radius:8px;align-self:flex-start" hidden></div>`}
+function wirePhoto(ex){const st={data:null};
+  if(ex?.hasPhoto)getPhoto(ex.id).then(d=>{if(d&&$("#photo-prev")){$("#photo-prev").src=d;$("#photo-prev").hidden=false}});
+  $("#f-photo").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;$("#photo-st").textContent="Preparing photo…";try{st.data=await compressImage(f);$("#photo-prev").src=st.data;$("#photo-prev").hidden=false;$("#photo-st").textContent="Photo ready"}catch(err){$("#photo-st").textContent="Could not read that photo."}});
+  return st}
+async function saveRec(coll,ex,rec,prefix,ph){let t;if(ex){t=Object.assign(ex,rec,{updatedAt:now()})}else{t={id:uid(prefix),createdAt:now(),hasPhoto:false,...rec,updatedAt:now()};D[coll].push(t)}
+  if(ph&&ph.data){await setPhoto(t.id,ph.data);t.hasPhoto=true}await persist();return t}
+const delRec=(coll,id,what)=>()=>confirmBox(`Delete this ${what}?`,"Delete",async()=>{D[coll]=D[coll].filter(x=>x.id!==id);await Store.set("photo:"+id,null);await Store.set("file:"+id,null);await persist();toast("Deleted")});
+function formLift(id){const ex=id?D.lifts.find(x=>x.id===id):null;const v=ex||{lift:"L1",date:todayISO(),tech:"",remarks:"",issue:false};
+  openModal(id?"Edit lift visit":"New lift visit",`${photoField("Service report photo",ex?.hasPhoto)}
+   <div class="grid2">${select("lift","Lift",LIFTS,v.lift)}${field("date","Visit date",v.date,{type:"date"})}</div>
+   ${field("tech","Technician (Royal Elevator)",v.tech)}
+   <label class="row small"><input type="checkbox" name="issue" ${v.issue?"checked":""}> Problem found, follow-up needed</label>${area("remarks","Remarks",v.remarks)}`,
+  {onSave:async()=>{if(!fv("date"))return "Pick the visit date.";await saveRec("lifts",ex,{lift:fv("lift"),date:fv("date"),tech:fv("tech"),remarks:fv("remarks"),issue:$('#mform [name="issue"]').checked},"lift",ph);toast("Lift visit saved");return true},onDelete:id?delRec("lifts",id,"lift visit"):null});
+  const ph=wirePhoto(ex)}
+function formPetty(id,type){const ex=id?D.petty.find(x=>x.id===id):null;const v=ex||{type:type||"out",date:todayISO(),amount:"",category:EXP_CATS[0],desc:""};
+  openModal(id?"Edit entry":v.type==="in"?"Cash in":"New expense",`${v.type==="out"?photoField("Bill photo",ex?.hasPhoto):""}
+   <div class="grid2">${field("amount","Amount (PKR)",v.amount,{mode:"numeric"})}${field("date","Date",v.date,{type:"date"})}</div>
+   ${v.type==="out"?select("category","Category",EXP_CATS,v.category):""}${field("desc",v.type==="in"?"From / note":"What was it for",v.desc,{ph:v.type==="in"?"e.g. Cash from head office":"e.g. 2 tube lights, 2nd floor corridor"})}`,
+  {onSave:async()=>{const a=fnum("amount");if(a==null||isNaN(a)||a<=0)return "Type the amount.";await saveRec("petty",ex,{type:v.type,amount:a,date:fv("date")||todayISO(),category:v.type==="out"?fv("category"):"",desc:fv("desc")},"pc",ph);toast("Saved");return true},onDelete:id?delRec("petty",id,"entry"):null});
+  const ph=v.type==="out"?wirePhoto(ex):null}
+function formClean(id){const ex=id?D.cleaning.find(x=>x.id===id):null;const v=ex||{date:todayISO(),staffId:D.staff.find(s=>s.active!==false)?.id||"",areas:[],present:true,remarks:""};
+  const staffOpts=[["","Not listed"],...D.staff.filter(s=>s.active!==false||s.id===v.staffId).map(s=>[s.id,s.name])];
+  openModal(id?"Edit cleaning entry":"Cleaning entry",`<div class="grid2">${field("date","Date",v.date,{type:"date"})}${select("staffId","Staff member",staffOpts,v.staffId)}</div>
+   <label class="row small"><input type="checkbox" name="present" ${v.present!==false?"checked":""}> Present on duty</label>
+   <div class="field"><label>Areas cleaned</label><div class="chips">${CLEAN_AREAS.map(a=>`<button type="button" class="chip" data-chip="areas" data-val="${esc(a)}" aria-pressed="${(v.areas||[]).includes(a)}">${esc(a)}</button>`).join("")}</div></div>${area("remarks","Remarks",v.remarks)}`,
+  {onSave:async()=>{await saveRec("cleaning",ex,{date:fv("date")||todayISO(),staffId:fv("staffId"),present:$('#mform [name="present"]').checked,areas:chipsSel("areas"),remarks:fv("remarks")},"cln");toast("Saved");return true},onDelete:id?delRec("cleaning",id,"entry"):null})}
+function formTask(id){const ex=id?D.tasks.find(x=>x.id===id):null;const v=ex||{title:"",due:"",priority:"Medium",unitId:"",notes:"",done:false};
+  openModal(id?"Edit task":"New task",`${field("title","Task",v.title,{ph:"e.g. Fix 2nd floor corridor light"})}
+   <div class="grid2">${field("due","Due date",v.due,{type:"date"})}${select("priority","Priority",PRI,v.priority)}</div>
+   ${select("unitId","Unit (optional)",[["","None"],...D.units.map(u=>[u.id,u.id])],v.unitId)}${area("notes","Notes",v.notes)}`,
+  {onSave:async()=>{if(!fv("title"))return "Type the task.";await saveRec("tasks",ex,{title:fv("title"),due:fv("due"),priority:fv("priority"),unitId:fv("unitId"),notes:fv("notes"),done:v.done},"tsk");toast("Task saved");return true},onDelete:id?delRec("tasks",id,"task"):null})}
+function formStaff(id){const ex=id?D.staff.find(x=>x.id===id):null;const v=ex||{name:"",role:"",phone:"",cnic:"",emergency:"",joined:"",salary:"",notes:"",active:true};
+  openModal(id?"Edit staff record":"New staff record",`${field("name","Full name",v.name)}<div class="grid2">${field("role","Role",v.role,{ph:"e.g. Cleaner, Guard, Lift operator"})}${field("phone","Phone",v.phone,{type:"tel"})}</div>
+   <div class="grid2">${field("cnic","CNIC",v.cnic,{mode:"numeric"})}${field("emergency","Emergency contact",v.emergency,{ph:"Name and phone"})}</div>
+   <div class="grid2">${field("joined","Joining date",v.joined,{type:"date"})}${field("salary","Monthly salary (PKR)",v.salary,{mode:"numeric",hint:"Visible only to you"})}</div>
+   ${select("active","Status",[["1","Working"],["0","Left"]],v.active!==false?"1":"0")}${area("notes","Notes",v.notes)}
+   ${id?`<div class="small muted">Add CNIC copies or contracts in Documents and link them to ${esc(v.name)}.</div>`:""}`,
+  {onSave:async()=>{if(!fv("name"))return "Type the name.";const s=fnum("salary");if(s!=null&&isNaN(s))return "Salary must be a number.";await saveRec("staff",ex,{name:fv("name"),role:fv("role"),phone:fv("phone"),cnic:fv("cnic"),emergency:fv("emergency"),joined:fv("joined"),salary:s,notes:fv("notes"),active:fv("active")==="1"},"stf");toast("Saved");return true},onDelete:id?delRec("staff",id,"staff record"):null})}
+const MAX_DOC_MB=50;
+function formDoc(){
+  const links=[["","Not linked"],...D.units.map(u=>["Unit "+u.id,"Unit "+u.id]),...D.owners.map(o=>["Owner: "+o.name,"Owner: "+o.name]),...D.outlets.map(o=>["Outlet: "+o.name,"Outlet: "+o.name]),...D.tenants.map(t=>["Tenant: "+t.name,"Tenant: "+t.name]),...D.staff.map(s=>["Staff: "+s.name,"Staff: "+s.name])];
+  openModal("Add document",`<div class="field"><label for="f-docfile">File</label><input id="f-docfile" type="file"><span class="hint">Any file: PDF, photo, Word, video. Up to ${MAX_DOC_MB} MB.</span></div>
+   ${field("title","Title",""," ")}<div class="grid2">${select("category","Type",DOC_CATS,"Agreement")}${select("link","Linked to",links,"")}</div>${area("notes","Notes","")}`,
+  {onSave:async()=>{const f=$("#f-docfile").files[0];if(!f)return "Choose a file.";if(f.size>MAX_DOC_MB*1048576)return `That file is over ${MAX_DOC_MB} MB.`;
+    const id=uid("doc");const ok=await Store.set("file:"+id,f);if(!ok)return "Could not save the file on this device. It may be too big for the free space.";
+    D.docs.push({id,title:fv("title")||f.name,category:fv("category"),link:fv("link"),unitId:fv("link").startsWith("Unit ")?fv("link").slice(5):"",notes:fv("notes"),fileName:f.name,mime:f.type,size:f.size,createdAt:now(),updatedAt:now()});
+    await persist();toast("Document saved");return true}});
+  $("#f-docfile").addEventListener("change",e=>{const f=e.target.files[0];const t=$('#mform [name="title"]');if(f&&!t.value)t.value=f.name.replace(/\.[^.]+$/,"")});
+}
+async function viewDoc(id){const d=D.docs.find(x=>x.id===id);if(!d)return;
+  openModal(d.title,`<dl class="kv"><dt>Type</dt><dd>${esc(d.category)}</dd><dt>Linked to</dt><dd>${esc(d.link)||"—"}</dd><dt>File</dt><dd>${esc(d.fileName)} · ${(d.size/1024/1024).toFixed(2)} MB</dd><dt>Added</dt><dd>${fmtDate(d.createdAt.slice(0,10))}</dd><dt>Notes</dt><dd>${esc(d.notes)||"—"}</dd></dl><div id="doc-prev" class="small muted">Loading…</div>`,
+   {saveLabel:"Save a copy",onSave:async()=>{const b=await getFile(id);if(b)saveBlob(b,d.fileName);return false},onDelete:delRec("docs",id,"document")});
+  const b=await getFile(id);const el=$("#doc-prev");if(!el)return;if(!b){el.textContent="File not found on this device.";return}
+  const url=URL.createObjectURL(b);
+  el.innerHTML=(d.mime||"").startsWith("image/")?`<img src="${url}" alt="" style="max-height:360px;border-radius:8px">`:(d.mime||"").startsWith("video/")?`<video src="${url}" controls style="max-width:100%;max-height:360px"></video>`:`<span>Tap “Save a copy” to open this file.</span>`}
+const OPS_REPORTS=[
+ {id:"petty",name:"Petty cash and expenses",desc:"Cash in, cash out, balance, by category",filters:["range"],build:f=>{let bal=0;const rows=[];
+   D.petty.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(x=>{bal+=(x.type==="in"?1:-1)*(+x.amount||0);if(ymOf(x.date)>=f.from&&ymOf(x.date)<=f.to)rows.push([fmtDate(x.date),x.type==="in"?"Cash in":x.category,x.desc,x.type==="in"?+x.amount:"",x.type==="out"?+x.amount:"",bal])});
+   return {cols:["Date","Category","Details","Cash in","Spent","Balance"],money:[3,4,5],rows,sum:[3,4]}}},
+ {id:"expcat",name:"Expenses by category",desc:"Totals per category for the period",filters:["range"],build:f=>{const m={};D.petty.filter(x=>x.type==="out"&&ymOf(x.date)>=f.from&&ymOf(x.date)<=f.to).forEach(x=>{m[x.category]=(m[x.category]||0)+(+x.amount||0)});
+   return {cols:["Category","Spent"],money:[1],rows:Object.entries(m).sort((a,b)=>b[1]-a[1]),sum:[1]}}},
+ {id:"lifts",name:"Lift visits",desc:"Monthly visits and report photos",filters:["range"],build:f=>{const rows=[];monthsRange(f.from,f.to).forEach(ym=>LIFTS.forEach(([k,l])=>{const v=D.lifts.filter(x=>x.lift===k&&ymOf(x.date)===ym);
+   rows.push([fmtYM(ym),l,v.length?v.map(x=>fmtDate(x.date)).join(", "):"No visit",v.some(x=>x.hasPhoto)?"Yes":"No",v.some(x=>x.issue)?"Yes":"",v.map(x=>x.remarks).filter(Boolean).join("; ")])}));
+   return {cols:["Month","Lift","Visit dates","Report photo","Issue","Remarks"],rows}}},
+ {id:"staff",name:"Employees",desc:"Staff and salary records",filters:[],build:()=>({cols:["Name","Role","Phone","CNIC","Emergency contact","Joined","Salary","Status"],money:[6],sum:[6],
+   rows:D.staff.map(s=>[s.name,s.role,s.phone,s.cnic,s.emergency,s.joined?fmtDate(s.joined):"",s.salary??"",s.active===false?"Left":"Working"])})},
+ {id:"tasks",name:"Tasks",desc:"Open, overdue and finished",filters:[],build:()=>({cols:["Task","Priority","Due","Unit","Status","Done on"],
+   rows:D.tasks.slice().sort((a,b)=>(a.done-b.done)||(a.due||"9").localeCompare(b.due||"9")).map(t=>[t.title,t.priority,t.due?fmtDate(t.due):"",t.unitId,t.done?"Done":t.due&&t.due<todayISO()?"Overdue":"Open",t.doneOn?fmtDate(t.doneOn):""])})},
+ {id:"cleaning",name:"Cleaning log",desc:"Duty record and remarks",filters:["range"],build:f=>({cols:["Date","Staff","Present","Areas","Remarks"],
+   rows:D.cleaning.filter(c=>ymOf(c.date)>=f.from&&ymOf(c.date)<=f.to).sort((a,b)=>a.date.localeCompare(b.date)).map(c=>[fmtDate(c.date),staffName(c.staffId),c.present===false?"No":"Yes",(c.areas||[]).join(", "),c.remarks])})},
+];
+
+REPORTS.push(...OPS_REPORTS);
+/* ---------- backup ---------- */
+function backupText(){return JSON.stringify({app:"orion-tower-manager",exported:now(),data:D},null,1)}
+async function backupFile(){
+  const photos={};for(const p of [...D.payments,...D.lifts,...D.petty].filter(x=>x.hasPhoto)){const v=await getPhoto(p.id);if(v)photos[p.id]=v}
+  const files={};for(const d of D.docs){const b=await getFile(d.id);if(b)files[d.id]=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(b)})}
+  try{const blob=new Blob([JSON.stringify({app:"orion-tower-manager",exported:now(),data:D,photos,files})],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`orion-backup-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);toast("Backup file downloaded")}
+  catch(e){toast("Download blocked here. Use Copy backup text.")}
+}
+function restoreForm(){
+  openModal("Restore from backup",`<p class="small muted" style="margin:0">Pick a backup file, or paste backup text. This replaces everything on this device.</p>
+  <div class="field"><label for="f-file">Backup file</label><input id="f-file" type="file" accept=".json,application/json"></div>
+  <div class="field"><label for="f-paste">Or paste backup text</label><textarea id="f-paste" name="paste" style="min-height:120px"></textarea></div>`,
+  {saveLabel:"Restore",onSave:async()=>{
+    let txt=fv("paste");const f=$("#f-file").files[0];if(f)txt=await f.text();
+    if(!txt)return "Pick a file or paste backup text.";
+    try{const j=JSON.parse(txt);const d=j.data||j;if(!d.units||!Array.isArray(d.units))throw 0;D=d;D.meta=D.meta||{};D.agreements=D.agreements||[];D.payments=D.payments||[];for(const k of ["lifts","petty","cleaning","tasks","docs","staff"])D[k]=D[k]||[];if(j.photos)for(const [k,v] of Object.entries(j.photos))await setPhoto(k,v);if(j.files)for(const [k,v] of Object.entries(j.files))await setFile(k,await (await fetch(v)).blob());await persist(false);toast("Backup restored");route={tab:"home"};return true}
+    catch(e){return "That is not an Orion Tower backup."}
+  }});
+}
+
+/* ---------- search ---------- */
+function search(q){
+  q=q.toLowerCase();const out=[];const has=(...v)=>v.some(x=>String(x||"").toLowerCase().includes(q));
+  D.units.forEach(u=>{const o=activeOutletOf(u.id);if(has(u.id,o?.name,u.notes))out.push({k:"Unit",t:u.id+(o?" · "+o.name:""),r:{tab:"units",id:u.id}})});
+  D.owners.forEach(o=>{if(has(o.name,o.phone,o.cnic))out.push({k:"Owner",t:o.name,r:{tab:"people",owner:o.id}})});
+  D.outlets.forEach(o=>{if(has(o.name,o.business))out.push({k:"Outlet",t:o.name,r:{tab:"people",outlet:o.id}})});
+  D.tenants.forEach(t=>{if(has(t.name,t.phone,t.cnic))out.push({k:"Tenant",t:t.name,r:{tab:"people",tenant:t.id}})});
+  D.accounts.forEach(a=>{if(has(a.bank,a.title,a.number,a.label))out.push({k:"Account",t:`${a.bank} · ${a.number} (${acctHolderName(a)})`,r:a.holder==="owner"&&a.ownerId?{tab:"people",owner:a.ownerId}:{tab:"people",ptab:"accounts"}})});
+  D.payments.forEach(p=>{const a=D.agreements.find(x=>x.id===p.agreementId);if(has(p.note,p.rentDiscountReason,p.scDiscountReason)||(q.replace(/,/g,"").match(/^\d{3,}$/)&&[p.rentAmount,p.scAmount].some(v=>String(v)===q.replace(/,/g,""))))out.push({k:"Payment",t:`${a?agTitle(a):"Payment"} · ${fmtYM(p.month)} · ${pkr((+p.rentAmount||0)+(+p.scAmount||0))}`,pay:p.id})});
+  return out.slice(0,30);
+}
+let lastResults=[];
+$("#q").addEventListener("input",e=>{
+  const q=e.target.value.trim();const box=$("#results");
+  if(!q){box.hidden=true;return}
+  lastResults=search(q);
+  box.innerHTML=lastResults.length?lastResults.map((r,i)=>`<button data-sr="${i}"><span>${esc(r.t)}</span><span class="small muted">${r.k}</span></button>`).join(""):'<div class="empty">Nothing found</div>';
+  box.hidden=false;
+});
+document.addEventListener("click",e=>{if(!e.target.closest(".search"))$("#results").hidden=true});
+
+/* ---------- events ---------- */
+document.addEventListener("change",e=>{
+  if(e.target.dataset&&e.target.dataset.taskDone){const t=D.tasks.find(x=>x.id===e.target.dataset.taskDone);t.done=e.target.checked;t.doneOn=t.done?todayISO():"";t.updatedAt=now();persist().then(()=>{toast(t.done?"Task done":"Task reopened");render()});return}
+  if(e.target.id==="uf-status"){unitFilter.status=e.target.value;render()}
+  if(e.target.dataset&&e.target.dataset.rf){repState.f[e.target.dataset.rf]=e.target.value;render()}
+  if(e.target.name==="holder"&&$("#ownerwrap")){const own=e.target.value==="owner";$("#ownerwrap").hidden=!own;$("#labelwrap").hidden=own}
+});
+document.addEventListener("submit",e=>e.preventDefault());
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("button,[data-go-unit]");if(!b)return;
+  const d=b.dataset;
+  if(d.sr!=null){$("#results").hidden=true;$("#q").value="";const x=lastResults[+d.sr];if(x.pay){moneyTab="payments";go({tab:"money"});viewPay(x.pay)}else go(x.r);return}
+  if(d.chip){if(!b.disabled)b.setAttribute("aria-pressed",b.getAttribute("aria-pressed")==="true"?"false":"true");return}
+  if(d.addShare!==undefined){$("#shares").insertAdjacentHTML("beforeend",shareRowHTML());return}
+  if(d.rmRow!==undefined){b.closest(".sharerow").remove();return}
+  if(d.modal==="close"){closeModal();return}
+  if(d.modal==="save"&&modalState?.onSave){b.disabled=true;const r=await modalState.onSave();b.disabled=false;
+    if(r===true){closeModal();render()}else if(typeof r==="string"){$("#merr").textContent=r}return}
+  if(d.modal==="delete"&&modalState?.onDelete){modalState.onDelete();return}
+  if(d.goUnit){closeModal();go({tab:"units",id:d.goUnit});return}
+  if(d.goOwner){go({tab:"people",owner:d.goOwner});return}
+  if(d.goOutlet){go({tab:"people",outlet:d.goOutlet});return}
+  if(d.goTenant){go({tab:"people",tenant:d.goTenant});return}
+  if(d.back){if(d.ptabBack)peopleTab=d.ptabBack;go({tab:d.back});return}
+  if(d.ufFloor){unitFilter.floor=d.ufFloor;render();return}
+  if(d.ptab){peopleTab=d.ptab;render();return}
+  if(d.agf){agFilter=d.agf;render();return}
+  if(d.mtab){moneyTab=d.mtab;render();return}
+  if(d.gotoTab){go({tab:d.gotoTab});return}
+  if(d.otab){opsTab=d.otab;render();return}
+  if(d.otabGo){opsTab=d.otabGo;go({tab:"ops"});return}
+  if(d.toggleSalary!==undefined){showSalary=!showSalary;render();return}
+  if(d.openRep){repState={id:d.openRep,f:defaultFilters(),hidden:[]};render();window.scrollTo(0,0);return}
+  if(d.repBack!==undefined){repState={id:null};render();return}
+  if(d.col!=null){const i=+d.col;repState.hidden=repState.hidden.includes(i)?repState.hidden.filter(x=>x!==i):[...repState.hidden,i];render();return}
+  if(d.export){exportReport(d.export);return}
+  if(d.saveRep!==undefined){const n=$("#save-name").value.trim();if(!n){toast("Type a name first");return}D.meta.savedReports=D.meta.savedReports||[];D.meta.savedReports.push({name:n,id:repState.id,f:{...repState.f},hidden:repState.hidden.slice()});await persist();toast("Saved as "+n);return}
+  if(d.openSaved!=null){const sv=D.meta.savedReports[+d.openSaved];const f=defaultFilters();repState={id:sv.id,f:{...f,...sv.f},hidden:sv.hidden.slice()};render();return}
+  if(d.delSaved!=null){D.meta.savedReports.splice(+d.delSaved,1);await persist();render();return}
+  if(d.mtabGo){moneyTab=d.mtabGo;go({tab:"money"});return}
+  if(d.mym){moneyYM=d.mym;render();return}
+  if(d.addSplit!==undefined){if(!D.accounts.length)return;const sp=$("#splits");if(!sp.querySelector(".splitrow"))sp.innerHTML="";sp.insertAdjacentHTML("beforeend",splitRowHTML());return}
+  if(d.rmSplit!==undefined){b.closest(".splitrow").remove();return}
+  if(d.goAg){closeModal();go({tab:"agreements",ag:d.goAg});return}
+  if(d.addPhase!==undefined){$("#phases").insertAdjacentHTML("beforeend",phaseRowHTML());return}
+  if(d.rmPhase!==undefined){b.closest(".phaserow").remove();return}
+  switch(d.act){
+    case "edit-unit":formUnit(d.id);break;
+    case "add-owner":formOwner(null,d.unit);break;
+    case "edit-owner":formOwner(d.id);break;
+    case "add-outlet":formOutlet(null,d.unit);break;
+    case "edit-outlet":formOutlet(d.id);break;
+    case "add-tenant":formTenant(null,d.outlet);break;
+    case "edit-tenant":formTenant(d.id);break;
+    case "add-account":formAccount(null,d.owner);break;
+    case "edit-account":formAccount(d.id);break;
+    case "add-ag":formAg(null,d.outlet);break;
+    case "edit-ag":formAg(d.id);break;
+    case "renew":formRenew(d.id);break;
+    case "add-lift":formLift();break;case "edit-lift":formLift(d.id);break;
+    case "add-petty":formPetty(null,d.type);break;case "edit-petty":formPetty(d.id);break;
+    case "add-clean":formClean();break;case "edit-clean":formClean(d.id);break;
+    case "add-task":formTask();break;case "edit-task":formTask(d.id);break;
+    case "add-staff":formStaff();break;case "edit-staff":formStaff(d.id);break;
+    case "add-doc":formDoc();break;case "view-doc":viewDoc(d.id);break;
+    case "add-pay":formPay(null,d.ag,d.ym);break;
+    case "view-pay":viewPay(d.id);break;
+    case "remind":copyText(reminderText(D.agreements.find(x=>x.id===d.ag),d.ym));break;
+    case "set-track":{const v=$("#track-from").value;if(v){D.meta.trackFrom=v;await persist();toast("Tracking starts "+fmtYM(v));render()}break}
+    case "backup-file":backupFile();break;
+    case "backup-copy":try{await navigator.clipboard.writeText(backupText());toast("Backup copied. Paste it into a note or email to yourself.")}catch(err){openModal("Backup text",`<p class="small muted" style="margin:0">Select all of this and copy it.</p><textarea style="min-height:240px;width:100%" readonly>${esc(backupText())}</textarea>`)}break;
+    case "restore":restoreForm();break;
+    case "reset":confirmBox("Clear <b>all</b> data on this device and start again with the 30 units and 10 outlets? Download a backup first if you need one.","Reset",async()=>{D=seed();await persist(false);route={tab:"home"};toast("Data reset")});break;
+  }
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&modalState)closeModal()});
+
+load().then(render);
+})();
+</script>
+<script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js");</script>
+</body></html>
