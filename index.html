@@ -120,6 +120,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .tbl th,.tbl td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
 .tbl th{font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .phaserow{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 36px;gap:6px;align-items:center}
+.slipline{grid-template-columns:1fr 130px 36px}.bldrow{grid-template-columns:1.4fr 1fr 1fr 36px}
 .phaserow input{padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);min-width:0;width:100%}
 .alert{display:flex;align-items:center;gap:10px;padding:10px 12px;border:0;border-radius:8px;width:100%;text-align:left;cursor:pointer;font-weight:500}
 .alert.bad{background:var(--bad-bg);color:var(--bad)}
@@ -196,6 +197,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   .mobile-brand{display:block!important}
   .two,.grid2{grid-template-columns:1fr}
   .phaserow{grid-template-columns:1fr 1fr}
+  .slipline{grid-template-columns:1fr 100px 32px}.bldrow{grid-template-columns:1fr 1fr 1fr 32px}.bldrow input:first-child{grid-column:1/-1}
   .splitrow{grid-template-columns:1fr 36px}
   .splitrow input[name="sv"]{grid-column:1/2}
   .phaserow [name="pl"]{grid-column:1/-1}
@@ -300,14 +302,14 @@ function seed(){
   addOutlet("Arif Habib",["2ndF6"]);
   addOutlet("K6 Studio",["LG3"],{noRent:true,business:"Architectural visualization office (sister company)"});
   U("LG3").status="Owner-occupied";U("LG3").noRent=true;U("LG3").notes="K6 Studio office. Sister company, pays no rent.";
-  return {version:2,units,owners:[],accounts:[],outlets,tenants:[],agreements:[],payments:[],lifts:[],petty:[],cleaning:[],tasks:[],docs:[],staff:[],meta:{created:now(),changes:0,trackFrom:ymOf(todayISO())}};
+  return {version:2,units,owners:[],accounts:[],outlets,tenants:[],agreements:[],payments:[],lifts:[],petty:[],cleaning:[],tasks:[],docs:[],staff:[],slips:[],building:[],meta:{created:now(),changes:0,trackFrom:ymOf(todayISO())}};
 }
 async function load(){
   await Store.open();
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
   const d=await Store.get("data");
   D=d&&d.units?d:seed();
-  D.agreements=D.agreements||[];D.payments=D.payments||[];for(const k of ["lifts","petty","cleaning","tasks","docs","staff"])D[k]=D[k]||[];D.meta.trackFrom=D.meta.trackFrom||ymOf(todayISO());
+  D.agreements=D.agreements||[];D.payments=D.payments||[];for(const k of ["lifts","petty","cleaning","tasks","docs","staff","slips","building"])D[k]=D[k]||[];D.meta.trackFrom=D.meta.trackFrom||ymOf(todayISO());
   if(!d)await persist(false);
   knownIds=allIds();D.deleted=D.deleted||{};
   await loadSyncCfg();
@@ -502,7 +504,8 @@ function viewTenant(id){
   return `<div><button class="btn link" data-back="people" data-ptab-back="tenants">← Tenants</button></div>
   <div class="page-head"><div><div class="label">Tenant (outlet owner)</div><h1>${esc(t.name)}</h1></div><button class="btn" data-act="edit-tenant" data-id="${t.id}">Edit</button></div>
   <section class="panel"><dl class="kv num"><dt>Role</dt><dd>${esc(t.role)||"—"}</dd><dt>Phone / WhatsApp</dt><dd>${esc(t.phone)||"—"}</dd><dt>CNIC</dt><dd>${esc(t.cnic)||"—"}</dd>
-  <dt>Outlets</dt><dd>${(t.outletIds||[]).map(i=>`<button class="btn sm" data-go-outlet="${i}">${esc(outlet(i)?.name||"?")}</button>`).join(" ")||"—"}</dd><dt>Notes</dt><dd>${esc(t.notes)||"—"}</dd></dl></section>`;
+  <dt>Outlets</dt><dd>${(t.outletIds||[]).map(i=>`<button class="btn sm" data-go-outlet="${i}">${esc(outlet(i)?.name||"?")}</button>`).join(" ")||"—"}</dd><dt>Notes</dt><dd>${esc(t.notes)||"—"}</dd></dl></section>
+  ${(()=>{const ags=(t.outletIds||[]).flatMap(i=>agsOfOutlet(i)).filter(a=>a.active);return `<section class="panel"><div class="sec-head"><h2>Security deposit and advance rent</h2></div>${ags.length?`<div style="overflow-x:auto"><table class="tbl num"><thead><tr><th>Agreement</th><th>Security deposit</th><th>Advance rent</th><th></th></tr></thead><tbody>${ags.map(a=>`<tr><td>${esc(agTitle(a))}</td><td>${a.deposit?pkr(a.deposit):"—"}${a.depositNote?`<div class="small muted">${esc(a.depositNote)}</div>`:""}</td><td>${a.advanceAmount?pkr(a.advanceAmount)+`<div class="small muted">from ${fmtYM(a.advanceFrom)}</div>`:"—"}</td><td><button class="btn sm" data-act="edit-ag" data-id="${a.id}">Edit</button></td></tr>`).join("")}</tbody></table></div><p class="small muted" style="margin:8px 0 0">These are kept on the agreement, because one outlet can have several tenants.</p>`:'<p class="small muted" style="margin:0">Add an agreement for this tenant\'s outlet to record the security deposit and advance rent.</p>'}</section>`})()}`;
 }
 function accountsBody(){
   const groups=[["orion","Orion Tower accounts"],["owner","Shop owner accounts"],["other","Other accounts"]];
@@ -517,18 +520,16 @@ function viewMore(){
   <section class="panel"><h2 style="margin-bottom:8px">Your data on this device</h2>
     <p class="small muted" style="margin:0 0 10px">Everything is saved inside this app on this device first, so it works without internet. With Google sync on, it is also copied to your Google Drive.</p>
     <dl class="kv num" style="margin-bottom:12px"><dt>Last saved</dt><dd>${D.meta.lastSaved?new Date(D.meta.lastSaved).toLocaleString("en-PK"):"—"}</dd><dt>Payments</dt><dd>${D.payments.length}</dd><dt>Changes made</dt><dd>${D.meta.changes||0}</dd><dt>Storage</dt><dd>${Store.db?(saved?"Saved on this device":"Last save failed"):"Browser storage blocked. Changes will be lost when you close this page."}</dd></dl>
-    <div class="row"><button class="btn primary" data-act="backup-file">Download backup file</button><button class="btn" data-act="backup-copy">Copy backup text</button><button class="btn" data-act="restore">Restore from backup</button></div>
+    <div class="row"><button class="btn primary" data-act="backup-file">Download backup file</button><button class="btn" data-act="backup-copy">Copy backup text</button><button class="btn" data-act="restore">Restore from backup</button><button class="btn" data-act="import">Import data file</button></div>
   </section>
+  ${buildingSection()}
   <section class="panel"><h2 style="margin-bottom:8px">Rent tracking starts from</h2><p class="small muted" style="margin:0 0 10px">Months before this are not checked for late rent. Set it to the first month you record payments in this app.</p>
     <div class="row"><input id="track-from" type="month" value="${esc(trackFrom())}" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)"><button class="btn" data-act="set-track">Save</button></div></section>
-  <section class="panel"><h2 style="margin-bottom:8px">Coming in the next steps</h2>
+  <section class="panel"><h2 style="margin-bottom:8px">Next</h2>
     <ol class="small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
-      <li class="muted">Units, owners, tenants, bank accounts (done)</li>
-      <li class="muted">Agreements, renewals every 11 months, rent phases (done)</li>
-      <li class="muted">Payments with photo, split accounts, discounts with reason, red dots (done)</li>
-      <li class="muted">Reports and Excel / Google Sheets / Doc export (done)</li>
-      <li class="muted">Lift visits, petty cash, cleaning log, to-do list, documents, staff records (done)</li>
-      <li>Next: install on phone and PC, then sync to your Google Sheets and Drive</li></ol></section>
+      <li class="muted">All 5 build steps, install on phone and PC, Google auto-save (done)</li>
+      <li class="muted">Rent slips, logo on reports, deposit and advance rent, building info (done)</li>
+      <li>Next: bring in your old Google Sheet data, cleaned</li></ol></section>
   <section class="panel"><h2 style="margin-bottom:8px">Start over</h2><p class="small muted" style="margin:0 0 10px">Clears everything on this device and puts back the starting list of 30 units and 10 outlets.</p><button class="btn danger" data-act="reset">Reset all data</button></section>`;
 }
 
@@ -619,7 +620,8 @@ function formTenant(id,presetOutlet){
     <div class="grid2">${field("phone","Phone / WhatsApp",t.phone,{type:"tel",ph:"03xx-xxxxxxx"})}${field("cnic","CNIC",t.cnic,{ph:"31202-1234567-1",mode:"numeric"})}</div>
     ${field("role","Role",t.role,{ph:"e.g. Franchise owner, Area manager"})}
     <div class="field"><label>Outlets</label><span class="hint">A tenant can be linked to more than one outlet.</span><div class="chips">${D.outlets.filter(o=>o.active||t.outletIds.includes(o.id)).map(o=>`<button type="button" class="chip" data-chip="outlets" data-val="${o.id}" aria-pressed="${t.outletIds.includes(o.id)}">${esc(o.name)}</button>`).join("")}</div></div>
-    ${area("notes","Notes",t.notes)}`,
+    ${area("notes","Notes",t.notes)}
+    <p class="small muted" style="margin:0">Security deposit and advance rent are entered on the outlet's agreement (Leases tab) and shown on this tenant's page.</p>`,
   {onSave:async()=>{
     const name=fv("name");if(!name)return "Please type the tenant's name.";
     const rec={name,phone:fv("phone"),cnic:fv("cnic"),role:fv("role"),notes:fv("notes"),outletIds:chipsSel("outlets"),updatedAt:now()};
@@ -725,8 +727,9 @@ function viewAgreement(id){
       <dt>Rent starts</dt><dd>${fmtDate(a.rentStart)}${a.rentStart&&a.agreementDate&&a.rentStart>a.agreementDate?`<div class="small muted">Grace period of ${daysBetween(a.agreementDate,a.rentStart)} days</div>`:""}</dd>
       <dt>Rent this month</dt><dd><b>${pkr(rentFor(a,ym))}</b></dd>
       <dt>Service charges</dt><dd>${a.scMode==="separate"?pkr(a.scAmount)+" per month, due separately":a.scMode==="included"?"Included in rent":"None"}</dd>
-      <dt>Due date</dt><dd>10th of each month, in advance</dd>
-      <dt>Security deposit</dt><dd>${a.deposit?pkr(a.deposit):"—"}</dd>
+      <dt>Due date</dt><dd>${dueDayOf(a)}th of each month, in advance</dd>
+      <dt>Security deposit</dt><dd>${a.deposit?pkr(a.deposit):"—"}${a.depositNote?`<div class="small muted">${esc(a.depositNote)}</div>`:""}</dd>
+      <dt>Advance rent</dt><dd>${a.advanceAmount?pkr(a.advanceAmount)+" from "+fmtYM(a.advanceFrom):"—"}${a.advanceAmount?`<div class="small muted">Covers the rent from ${fmtYM(a.advanceFrom)} until it is used up</div>`:""}</dd>
       <dt>Tax by tenant</dt><dd>${esc(a.taxNote)||"—"}</dd>
       <dt>With owner(s)</dt><dd>${ow.length?ow.map(x=>`<button class="btn sm" data-go-owner="${x.id}">${esc(x.name)}</button>`).join(" "):"—"}</dd>
       <dt>Notes</dt><dd>${esc(a.notes)||"—"}</dd></dl></section>
@@ -749,7 +752,7 @@ function viewAgreement(id){
 function phaseRowHTML(p={}){return `<div class="phaserow"><input name="pl" placeholder="Label, e.g. First 6 months" value="${esc(p.label||"")}" aria-label="Phase label"><input name="pf" type="month" value="${esc(p.from||"")}" aria-label="From month"><input name="pt" type="month" value="${esc(p.to||"")}" aria-label="To month"><input name="pr" inputmode="numeric" placeholder="Rent PKR" value="${esc(p.rent??"")}" aria-label="Rent"><button type="button" class="x" data-rm-phase aria-label="Remove">✕</button></div>`}
 function formAg(id,presetOutlet){
   const ex=id?D.agreements.find(x=>x.id===id):null;
-  const a=ex||{outletId:presetOutlet||"",unitIds:[],ownerIds:[],agreementDate:todayISO(),rentStart:todayISO(),rentHistory:[],phases:[],scMode:"separate",scAmount:"",rentAccountIds:[],scAccountIds:[],deposit:"",increasePct:10,nextRenewal:"",taxNote:"",notes:"",active:true};
+  const a=ex||{outletId:presetOutlet||"",unitIds:[],ownerIds:[],agreementDate:todayISO(),rentStart:todayISO(),rentHistory:[],phases:[],scMode:"separate",scAmount:"",rentAccountIds:[],scAccountIds:[],deposit:"",depositNote:"",advanceAmount:"",advanceFrom:"",dueDay:10,increasePct:10,nextRenewal:"",taxNote:"",notes:"",active:true};
   const outs=D.outlets.filter(o=>o.active||o.id===a.outletId);
   const oid=a.outletId||outs.find(o=>!o.noRent)?.id||"";
   const lastH=(a.rentHistory||[]).slice(-1)[0]||{};
@@ -765,7 +768,10 @@ function formAg(id,presetOutlet){
     <div class="field"><label>Rent goes to which account(s)</label><div class="chips">${acctChips("rentAcc",a.rentAccountIds)}</div></div>
     <div class="field" id="scaccwrap"><label>Service charges go to which account(s)</label><div class="chips">${acctChips("scAcc",a.scAccountIds)}</div></div>
     <div class="grid2">${field("increasePct","Rent increase at renewal (%)",a.increasePct,{mode:"decimal"})}${field("nextRenewal","Next renewal date",a.nextRenewal,{type:"date",hint:"Filled in for you: agreement date + 11 months."})}</div>
-    <div class="grid2">${field("deposit","Security deposit (PKR)",a.deposit,{mode:"numeric"})}${field("taxNote","Tax deducted by tenant",a.taxNote,{ph:"e.g. 10% withholding on rent"})}</div>
+    <div class="field"><label>Security deposit and advance rent</label></div>
+    <div class="grid2">${field("deposit","Security deposit (PKR)",a.deposit,{mode:"numeric",hint:"Refundable amount held by the owner."})}${field("depositNote","Deposit details",a.depositNote,{ph:"e.g. 3 months' rent, received 1 Jan 2026"})}</div>
+    <div class="grid2">${field("advanceAmount","Advance rent received (PKR)",a.advanceAmount,{mode:"numeric",hint:"Covers the rent month by month until it is used up, so those months don't show red."})}${field("advanceFrom","Advance covers rent from",a.advanceFrom,{type:"month"})}</div>
+    <div class="grid2">${field("dueDay","Rent due by (day of month)",a.dueDay||10,{mode:"numeric",hint:"Normally 10. Some tenants pay by the 25th."})}${field("taxNote","Tax deducted by tenant",a.taxNote,{ph:"e.g. 10% withholding on rent"})}</div>
     ${select("active","Status",[["1","Active"],["0","Ended"]],a.active?"1":"0")}
     ${area("notes","Notes",a.notes)}`,
   {onSave:async()=>{
@@ -779,10 +785,13 @@ function formAg(id,presetOutlet){
     for(const p of phases){if(!p.from||!p.to||p.rent===""||isNaN(p.rent))return "Each rent phase needs a from month, a to month and a rent.";if(p.to<p.from)return "A rent phase ends before it starts.";p.rent=Number(p.rent)}
     const scMode=fv("scMode");const scAmount=fnum("scAmount");if(scMode==="separate"&&(scAmount==null||isNaN(scAmount)))return "Type the service charges amount, or choose “Included in rent”.";
     const inc=fnum("increasePct");if(inc==null||isNaN(inc))return "Type the rent increase %, for example 10.";
+    const advanceAmount=fnum("advanceAmount");if(advanceAmount!=null&&(isNaN(advanceAmount)||advanceAmount<0))return "The advance rent must be a number.";
+    if(advanceAmount&&!fv("advanceFrom"))return "Pick the month the advance rent starts covering.";
+    const dueDay=fnum("dueDay");if(dueDay!=null&&(isNaN(dueDay)||dueDay<1||dueDay>28))return "The due day must be between 1 and 28.";
     let history=(ex?.rentHistory||[]).slice();
     if(history.length){history[history.length-1]={...history[history.length-1],from:rentFrom,rent}}else history=[{from:rentFrom,rent}];
     const rec={outletId,unitIds,ownerIds:chipsSel("agowners"),agreementDate,rentStart,rentHistory:history,phases,scMode,scAmount:scMode==="separate"?scAmount:null,
-      rentAccountIds:chipsSel("rentAcc"),scAccountIds:scMode==="separate"?chipsSel("scAcc"):[],deposit:fnum("deposit"),increasePct:inc,
+      rentAccountIds:chipsSel("rentAcc"),scAccountIds:scMode==="separate"?chipsSel("scAcc"):[],deposit:fnum("deposit"),depositNote:fv("depositNote"),advanceAmount,advanceFrom:advanceAmount?fv("advanceFrom"):"",dueDay:dueDay||DUE_DAY,increasePct:inc,
       nextRenewal:fv("nextRenewal")||nextRenewalFrom(agreementDate,rentFrom),taxNote:fv("taxNote"),notes:fv("notes"),active:fv("active")==="1",updatedAt:now()};
     let t;if(ex){t=Object.assign(ex,rec)}else{t={id:uid("agr"),renewals:[],...rec};D.agreements.push(t)}
     await persist();toast("Agreement saved");closeModal();go({tab:"agreements",ag:t.id});return false;},
@@ -855,18 +864,19 @@ function dueRow(a,ym){
   const rentDue=rentFor(a,ym),scDue=scFor(a,ym);
   const rentPaid=sum("rentAmount")+sum("taxAmount"),rentDisc=sum("rentDiscount");
   const scPaid=sum("scAmount"),scDisc=sum("scDiscount");
-  const rentBal=Math.max(0,rentDue-rentPaid-rentDisc),scBal=Math.max(0,scDue-scPaid-scDisc);
-  const late=isLate(ym);
+  const rentAdv=advanceFor(a,ym);
+  const rentBal=Math.max(0,rentDue-rentPaid-rentDisc-rentAdv),scBal=Math.max(0,scDue-scPaid-scDisc);
+  const late=todayISO()>dueDateA(a,ym);
   const st=(due,bal,paid)=>due===0?"none":bal<=0?"paid":late?"late":paid>0?"part":"due";
-  return {a,ym,ps,rentDue,scDue,rentPaid,rentDisc,scPaid,scDisc,rentBal,scBal,late,
-    rentSt:st(rentDue,rentBal,rentPaid+rentDisc),scSt:st(scDue,scBal,scPaid+scDisc),
-    over:(rentPaid+rentDisc-rentDue)+(scDue?scPaid+scDisc-scDue:0)};
+  return {a,ym,ps,rentDue,scDue,rentPaid,rentDisc,rentAdv,scPaid,scDisc,rentBal,scBal,late,
+    rentSt:st(rentDue,rentBal,rentPaid+rentDisc+rentAdv),scSt:st(scDue,scBal,scPaid+scDisc),
+    over:(rentPaid+rentDisc+rentAdv-rentDue)+(scDue?scPaid+scDisc-scDue:0)};
 }
 function lateItems(){
   const out=[];
   D.agreements.filter(a=>a.active&&!outlet(a.outletId)?.noRent).forEach(a=>agMonths(a).forEach(ym=>{const r=dueRow(a,ym);
-    if(r.rentSt==="late")out.push({kind:"Rent",r,bal:r.rentBal,days:daysBetween(dueDate(ym),todayISO())});
-    if(r.scSt==="late")out.push({kind:"Service charges",r,bal:r.scBal,days:daysBetween(dueDate(ym),todayISO())});
+    if(r.rentSt==="late")out.push({kind:"Rent",r,bal:r.rentBal,days:daysBetween(dueDateA(r.a,ym),todayISO())});
+    if(r.scSt==="late")out.push({kind:"Service charges",r,bal:r.scBal,days:daysBetween(dueDateA(r.a,ym),todayISO())});
   }));
   return out.sort((x,y)=>y.days-x.days);
 }
@@ -875,15 +885,16 @@ const stPill=s=>s==="paid"?'<span class="pill st-Rented">Paid</span>':s==="late"
 function reminderText(a,ym){
   const r=dueRow(a,ym);const o=outlet(a.outletId);const parts=[];
   if(r.rentBal>0)parts.push(`rent ${pkr(r.rentBal)}`);if(r.scBal>0)parts.push(`service charges ${pkr(r.scBal)}`);
-  return `Assalam-o-Alaikum. This is a reminder from Orion Tower management, Bahawalpur, for ${o?.name||"your outlet"} (unit ${a.unitIds.slice().sort(unitSort).join(", ")}). The ${parts.join(" and ")} for ${fmtYM(ym)} was due by ${DUE_DAY} ${fmtYM(ym)}. Kindly arrange the payment at your earliest and share the slip. JazakAllah.\n\nKashif Mahmood\nGeneral Manager, Orion Tower`;
+  return `Assalam-o-Alaikum. This is a reminder from Orion Tower management, Bahawalpur, for ${o?.name||"your outlet"} (unit ${a.unitIds.slice().sort(unitSort).join(", ")}). The ${parts.join(" and ")} for ${fmtYM(ym)} was due by ${dueDayOf(a)} ${fmtYM(ym)}. Kindly arrange the payment at your earliest and share the slip. JazakAllah.\n\nKashif Mahmood\nGeneral Manager, Orion Tower`;
 }
 async function copyText(t){try{await navigator.clipboard.writeText(t);toast("Message copied. Paste it in WhatsApp.")}catch(e){openModal("Reminder message",`<p class="small muted" style="margin:0">Select all and copy.</p><textarea style="min-height:220px;width:100%">${esc(t)}</textarea>`)}}
 
 let moneyTab="month",moneyYM=null;
 function viewMoney(){
   const ym=moneyYM||curYM();
-  const tabs=`<div class="seg" role="group" aria-label="Show"><button aria-pressed="${moneyTab==="month"}" data-mtab="month">Monthly dues</button><button aria-pressed="${moneyTab==="late"}" data-mtab="late">Late list (${lateItems().length})</button><button aria-pressed="${moneyTab==="payments"}" data-mtab="payments">Payments (${D.payments.length})</button></div>`;
-  const head=`<div class="page-head"><div><div class="label">Rent and service charges · due by the ${DUE_DAY}th, in advance</div><h1>Money</h1></div><button class="btn primary" data-act="add-pay">+ Payment</button></div>`;
+  const tabs=`<div class="seg" role="group" aria-label="Show"><button aria-pressed="${moneyTab==="month"}" data-mtab="month">Monthly dues</button><button aria-pressed="${moneyTab==="late"}" data-mtab="late">Late list (${lateItems().length})</button><button aria-pressed="${moneyTab==="payments"}" data-mtab="payments">Payments (${D.payments.length})</button><button aria-pressed="${moneyTab==="slips"}" data-mtab="slips">Rent slips (${(D.slips||[]).length})</button></div>`;
+  const head=`<div class="page-head"><div><div class="label">Rent and service charges · due by the ${DUE_DAY}th, in advance</div><h1>Money</h1></div><div class="row"><button class="btn" data-act="add-slip">Rent slip</button><button class="btn primary" data-act="add-pay">+ Payment</button></div></div>`;
+  if(moneyTab==="slips")return head+tabs+slipsTab(ym);
   if(moneyTab==="late"){
     const li=lateItems();
     return head+tabs+(li.length?`<div class="list">${li.map(x=>`<div class="item" style="cursor:default"><div class="avatar" style="color:var(--bad)">${esc(initials(outlet(x.r.a.outletId)?.name))}</div><div class="grow"><div class="t">${esc(agTitle(x.r.a))}</div><div class="s num">${x.kind} for ${fmtYM(x.r.ym)} · ${pkr(x.bal)} pending · ${x.days} day${x.days===1?"":"s"} late</div></div>
@@ -902,12 +913,12 @@ function viewMoney(){
   <div class="stats"><div class="stat"><span class="label">Due</span><b>${pkr(due)}</b><span class="small muted">rent ${pkr(T("rentDue"))} · service ${pkr(T("scDue"))}</span></div>
    <div class="stat"><span class="label">Received</span><b>${pkr(collected)}</b><span class="small muted">incl. tax deducted by tenants</span></div>
    <div class="stat"><span class="label">Discounts</span><b>${pkr(T("rentDisc")+T("scDisc"))}</b><span class="small muted">each with a reason</span></div>
-   <div class="stat"><span class="label">Pending</span><b style="color:${pend?"var(--bad)":"inherit"}">${pkr(pend)}</b><span class="small muted">${isLate(ym)?"after the "+DUE_DAY+"th":"due by "+DUE_DAY+" "+fmtYM(ym)}</span></div></div>
+   <div class="stat"><span class="label">Pending</span><b style="color:${pend?"var(--bad)":"inherit"}">${pkr(pend)}</b><span class="small muted">${isLate(ym)?"after the due date":"due by "+DUE_DAY+" "+fmtYM(ym)}</span></div></div>
   ${ym<trackFrom()?`<div class="note info">Tracking starts from ${fmtYM(trackFrom())}. Change this under More.</div>`:""}
   <div style="overflow-x:auto" class="panel" ><table class="tbl num"><thead><tr><th>Outlet</th><th>Rent due</th><th>Received</th><th>Status</th><th>Service due</th><th>Received</th><th>Status</th><th></th></tr></thead><tbody>
-  ${rows.map(r=>`<tr><td><button class="btn link" data-go-ag="${r.a.id}" style="padding:0">${esc(agTitle(r.a))}</button></td><td>${pkr(r.rentDue)}</td><td>${pkr(r.rentPaid)}${r.rentDisc?`<div class="small muted">+ ${pkr(r.rentDisc)} discount</div>`:""}</td><td>${stPill(r.rentSt)}</td>
+  ${rows.map(r=>`<tr><td><button class="btn link" data-go-ag="${r.a.id}" style="padding:0">${esc(agTitle(r.a))}</button></td><td>${pkr(r.rentDue)}</td><td>${pkr(r.rentPaid)}${r.rentDisc?`<div class="small muted">+ ${pkr(r.rentDisc)} discount</div>`:""}${r.rentAdv?`<div class="small muted">+ ${pkr(r.rentAdv)} advance</div>`:""}</td><td>${stPill(r.rentSt)}</td>
     <td>${r.scDue?pkr(r.scDue):'<span class="muted">'+(r.a.scMode==="included"?"In rent":"—")+"</span>"}</td><td>${r.scDue?pkr(r.scPaid):""}${r.scDisc?`<div class="small muted">+ ${pkr(r.scDisc)} discount</div>`:""}</td><td>${stPill(r.scSt)}</td>
-    <td><div class="row" style="flex-wrap:nowrap">${r.rentBal+r.scBal>0?`<button class="btn sm" data-act="remind" data-ag="${r.a.id}" data-ym="${ym}">Reminder</button>`:""}<button class="btn sm primary" data-act="add-pay" data-ag="${r.a.id}" data-ym="${ym}">+ Payment</button></div></td></tr>`).join("")||`<tr><td colspan="8" class="muted">No active agreements with rent for this month. Add agreements first.</td></tr>`}
+    <td><div class="row" style="flex-wrap:nowrap">${r.rentBal+r.scBal>0?`<button class="btn sm" data-act="remind" data-ag="${r.a.id}" data-ym="${ym}">Reminder</button>`:""}<button class="btn sm" data-act="add-slip" data-ag="${r.a.id}" data-ym="${ym}">Slip</button><button class="btn sm primary" data-act="add-pay" data-ag="${r.a.id}" data-ym="${ym}">+ Payment</button></div></td></tr>`).join("")||`<tr><td colspan="8" class="muted">No active agreements with rent for this month. Add agreements first.</td></tr>`}
   </tbody></table></div>`;
 }
 
@@ -1021,27 +1032,31 @@ async function viewPay(id){
 const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
 const crc32=u=>{let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC_T[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0};
 function zipStore(files){const enc=new TextEncoder();const parts=[],cent=[];let off=0;
-  for(const [name,txt] of files){const nb=enc.encode(name),db=enc.encode(txt),crc=crc32(db);
+  for(const [name,txt] of files){const nb=enc.encode(name),db=txt instanceof Uint8Array?txt:enc.encode(txt),crc=crc32(db);
     const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint32(14,crc,true);h.setUint32(18,db.length,true);h.setUint32(22,db.length,true);h.setUint16(26,nb.length,true);
     parts.push(new Uint8Array(h.buffer),nb,db);
     const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint32(16,crc,true);c.setUint32(20,db.length,true);c.setUint32(24,db.length,true);c.setUint16(28,nb.length,true);c.setUint32(42,off,true);
     cent.push(new Uint8Array(c.buffer),nb);off+=30+nb.length+db.length}
   const cs=cent.reduce((s,x)=>s+x.length,0);const e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cs,true);e.setUint32(16,off,true);
   return new Blob([...parts,...cent,new Uint8Array(e.buffer)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}
-function makeXlsx(sheetName,aoa,widths){
+function makeXlsx(sheetName,aoa,widths,opt={}){const HR=opt.head??2,TR=opt.title??0,png=opt.logo||null;
   const x=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"");
   const col=i=>{let s="";i++;while(i){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
   const rows=aoa.map((r,ri)=>`<row r="${ri+1}">${r.map((v,ci)=>{const ref=col(ci)+(ri+1);if(v===""||v==null)return "";
-    const st=ri===2?' s="1"':(ri===0?' s="2"':"");
+    const st=ri===HR?' s="1"':(ri===TR?' s="2"':"");
     return typeof v==="number"&&isFinite(v)?`<c r="${ref}"${st||' s="3"'}><v>${v}</v></c>`:`<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${x(v)}</t></is></c>`}).join("")}</row>`).join("");
   const cols=widths?`<cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>`:"";
   return zipStore([
-   ["[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],
+   ["[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${png?'<Default Extension="png" ContentType="image/png"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':""}</Types>`],
    ["_rels/.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
    ["xl/workbook.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${x(sheetName.replace(/[\\\/?*\[\]:]/g," ").slice(0,31))}" sheetId="1" r:id="rId1"/></sheets></workbook>`],
    ["xl/_rels/workbook.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
    ["xl/styles.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCEBE8"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`],
-   ["xl/worksheets/sheet1.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${cols}<sheetData>${rows}</sheetData></worksheet>`]
+   ["xl/worksheets/sheet1.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${cols}<sheetData>${rows}</sheetData>${png?'<drawing r:id="rId1"/>':""}</worksheet>`],
+   ...(png?[["xl/worksheets/_rels/sheet1.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`],
+    ["xl/drawings/_rels/drawing1.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/></Relationships>`],
+    ["xl/drawings/drawing1.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx="1714500" cy="703000"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="2" name="Orion Tower logo"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1714500" cy="703000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>`],
+    ["xl/media/image1.png",png]]:[])
   ]);
 }
 
@@ -1051,8 +1066,8 @@ const monthsRange=(f,t)=>{const o=[];let m=f,n=0;while(m<=t&&n<240){o.push(m);m=
 const REPORTS=[
  {id:"rent",name:"Monthly rent collection",desc:"Who paid, who did not, how much is pending",filters:["range","floor","outlet"],build:f=>{
    const rows=[];D.agreements.filter(a=>!outlet(a.outletId)?.noRent&&agFloorMatch(a,f.floor)&&(f.outlet==="all"||a.outletId===f.outlet)).forEach(a=>monthsRange(f.from,f.to).forEach(ym=>{if(!agMonths(a).includes(ym))return;const r=dueRow(a,ym);if(!r.rentDue)return;
-     rows.push([fmtYM(ym),outlet(a.outletId)?.name,a.unitIds.join(" + "),r.rentDue,r.rentPaid,r.rentDisc,r.rentBal,ST_LABEL[r.rentSt]])}));
-   return {cols:["Month","Outlet","Units","Rent due","Received (incl. tax)","Discount","Pending","Status"],money:[3,4,5,6],rows,sum:[3,4,5,6]}}},
+     rows.push([fmtYM(ym),outlet(a.outletId)?.name,a.unitIds.join(" + "),r.rentDue,r.rentPaid,r.rentDisc,r.rentAdv,r.rentBal,ST_LABEL[r.rentSt]])}));
+   return {cols:["Month","Outlet","Units","Rent due","Received (incl. tax)","Discount","Advance used","Pending","Status"],money:[3,4,5,6,7],rows,sum:[3,4,5,6,7]}}},
  {id:"sc",name:"Service charges collection",desc:"Who paid, who is late, total collected",filters:["range","floor","outlet"],build:f=>{
    const rows=[];D.agreements.filter(a=>a.scMode==="separate"&&agFloorMatch(a,f.floor)&&(f.outlet==="all"||a.outletId===f.outlet)).forEach(a=>monthsRange(f.from,f.to).forEach(ym=>{if(!agMonths(a).includes(ym))return;const r=dueRow(a,ym);if(!r.scDue)return;
      rows.push([fmtYM(ym),outlet(a.outletId)?.name,a.unitIds.join(" + "),r.scDue,r.scPaid,r.scDisc,r.scBal,ST_LABEL[r.scSt]])}));
@@ -1110,7 +1125,7 @@ function viewReport(){
   const fl=def.filters;
   return `<div><button class="btn link" data-rep-back>← Reports</button></div>
   <div class="page-head"><div><div class="label">${out.rows.length} row${out.rows.length===1?"":"s"}</div><h1>${esc(def.name)}</h1></div>
-   <div class="row"><button class="btn primary" data-export="xlsx">Excel</button><button class="btn" data-export="sheets">Google Sheets</button><button class="btn" data-export="doc">Word / Doc</button><button class="btn" data-export="csv">CSV</button></div></div>
+   <div class="row"><button class="btn primary" data-export="xlsx">Excel</button><button class="btn" data-export="pdf">PDF</button><button class="btn" data-export="sheets">Google Sheets</button><button class="btn" data-export="doc">Word / Doc</button><button class="btn" data-export="csv">CSV</button></div></div>
   ${fl.length?`<section class="panel"><div class="row" style="align-items:flex-end">
     ${fl.includes("range")?`<div class="field" style="width:auto"><label for="rf-from">From</label><input id="rf-from" type="month" value="${f.from}" data-rf="from"></div><div class="field" style="width:auto"><label for="rf-to">To</label><input id="rf-to" type="month" value="${f.to}" data-rf="to"></div>`:""}
     ${fl.includes("floor")?`<div class="field" style="width:auto"><label for="rf-floor">Floor</label><select id="rf-floor" data-rf="floor"><option value="all">All floors</option>${FLOORS.map(x=>`<option value="${x.key}" ${f.floor===x.key?"selected":""}>${x.name}</option>`).join("")}</select></div>`:""}
@@ -1126,21 +1141,23 @@ function viewReport(){
    ${sums&&out.rows.length?`<tr class="total">${sums.map((v,i)=>keep[i]?`<td>${i===0?"<b>Total</b>":v==null?"":"<b>"+fmt(v,i)+"</b>"}</td>`:"").join("")}</tr>`:""}
   </tbody></table></div>`;
 }
-function reportMatrix(){const {def,out,keep}=runReport();const cols=out.cols.filter((_,i)=>keep[i]);const rows=out.rows.map(r=>r.filter((_,i)=>keep[i]));
+function reportMatrix(){const {def,out,keep}=runReport();const cols=out.cols.filter((_,i)=>keep[i]);const money=out.cols.map((_,i)=>(out.money||[]).includes(i)).filter((_,i)=>keep[i]);const rows=out.rows.map(r=>r.filter((_,i)=>keep[i]));
   if(out.sum&&out.rows.length){const t=out.cols.map((_,i)=>i===0?"Total":out.sum.includes(i)?out.rows.reduce((s,r)=>s+(Number(r[i])||0),0):"");rows.push(t.filter((_,i)=>keep[i]))}
-  return {def,cols,rows}}
+  return {def,cols,rows,money}}
 function fileName(ext){return `Orion-${repState.id}-${todayISO()}.${ext}`}
 function saveBlob(blob,name){try{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},800);toast("Saved "+name)}catch(e){toast("Download is blocked here. Use Google Sheets (copy) instead.")}}
 async function exportReport(kind){
-  const {def,cols,rows}=reportMatrix();
+  const {def,cols,rows,money}=reportMatrix();let L=null;try{L=await logoAssets()}catch(e){}
+  if(kind==="pdf"){saveBlob(await reportPdf(def,cols,rows,money),fileName("pdf"));return}
   const title=`${def.name} · Orion Tower, Bahawalpur`;
   if(kind==="sheets"){const tsv=[cols,...rows].map(r=>r.map(v=>String(v??"").replace(/\t|\n/g," ")).join("\t")).join("\n");
     try{await navigator.clipboard.writeText(tsv);openModal("Copied for Google Sheets",`<p style="margin:0">The table is copied. Open <b>sheets.new</b> in your browser, click cell A1 and paste. Automatic sync to your own Google Sheet comes after you approve the Google connection.</p>`)}
     catch(e){openModal("Copy for Google Sheets",`<p class="small muted" style="margin:0">Select all, copy, then paste into cell A1 of a Google Sheet.</p><textarea style="min-height:220px;width:100%">${esc(tsv)}</textarea>`)}return}
   if(kind==="csv"){const csv=[cols,...rows].map(r=>r.map(v=>{const s=String(v??"");return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s}).join(",")).join("\r\n");saveBlob(new Blob(["﻿"+csv],{type:"text/csv"}),fileName("csv"));return}
-  if(kind==="doc"){const html=`<html><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font-family:Calibri,Arial,sans-serif}table{border-collapse:collapse}td,th{border:1px solid #999;padding:4px 8px;font-size:10pt}th{background:#e6efed}</style></head><body><h2>${esc(def.name)}</h2><p>Orion Tower, Bahawalpur · prepared ${fmtDate(todayISO())}</p><table><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr>${rows.map(r=>`<tr>${r.map(v=>`<td>${esc(typeof v==="number"?v.toLocaleString("en-PK"):v)}</td>`).join("")}</tr>`).join("")}</table></body></html>`;
-    saveBlob(new Blob(["﻿"+html],{type:"application/msword"}),fileName("doc"));return}
-  saveBlob(makeXlsx(def.name,[[title],[],cols,...rows],cols.map(c=>Math.max(12,c.length+3))),fileName("xlsx"));
+  if(kind==="doc"){const body=`<h2>${esc(def.name)}</h2><p>Orion Tower, Bahawalpur · prepared ${fmtDate(todayISO())}</p><table><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr>${rows.map(r=>`<tr>${r.map((v,i)=>`<td${typeof v==="number"?' align="right"':""}>${esc(typeof v==="number"?v.toLocaleString("en-PK"):v)}</td>`).join("")}</tr>`).join("")}</table>`;
+    saveBlob(makeDocx(def.name,"Orion Tower, Bahawalpur · prepared "+fmtDate(todayISO()),cols,rows,money,L?.png||null),fileName("docx"));return}
+  const top=L?[[],[],[],[]]:[];
+  saveBlob(makeXlsx(def.name,[...top,[def.name],["Orion Tower, Bahawalpur · prepared "+fmtDate(todayISO())],[],cols,...rows],cols.map(c=>Math.max(12,c.length+3)),{title:top.length,head:top.length+3,logo:L?.png||null}),fileName("xlsx"));
 }
 
 /* ---------- operations (step 5): lifts, petty cash, cleaning, to-do, documents, staff ---------- */
@@ -1270,7 +1287,7 @@ const OPS_REPORTS=[
 
 REPORTS.push(...OPS_REPORTS);
 /* ---------- Google Drive / Sheets sync ---------- */
-const COLLS=["owners","accounts","outlets","tenants","agreements","payments","lifts","petty","cleaning","tasks","docs","staff"];
+const COLLS=["owners","accounts","outlets","tenants","agreements","payments","lifts","petty","cleaning","tasks","docs","staff","slips","building"];
 const SYNC_EVERY=120000, MAX_UPLOAD_MB=20;
 let knownIds=null, syncCfg=null, syncBusy=false, syncTimer=null, pendingRender=false;
 let syncState={status:"off",last:null,error:""};
@@ -1301,6 +1318,7 @@ function sheetTables(){
     ...D.payments.slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")).map(p=>{const a=D.agreements.find(x=>x.id===p.agreementId);return [p.date,p.month,outlet(p.outletId)?.name||"",a?a.unitIds.join(" + "):"",+p.rentAmount||0,+p.taxAmount||0,+p.scAmount||0,+p.rentDiscount||0,p.rentDiscountReason||"",+p.scDiscount||0,p.scDiscountReason||"",(p.splits||[]).map(s=>{const x=D.accounts.find(y=>y.id===s.accountId);return `${x?acctHolderName(x)+" "+(x.bank||""):"?"}: ${s.amount}`}).join("; "),p.note||"",p.photoDriveId?"https://drive.google.com/file/d/"+p.photoDriveId:""]})];
   t["Agreements (all)"]=[["Outlet","Units","Agreement date","Rent starts","Current rent","Service charges","Increase %","Next renewal","Status"],
     ...D.agreements.map(a=>[outlet(a.outletId)?.name||"",a.unitIds.join(" + "),a.agreementDate,a.rentStart,currentRent(a),a.scMode==="separate"?+a.scAmount||0:a.scMode,+a.increasePct||0,a.nextRenewal,a.active?"Active":"Ended"])];
+  t["Rent slips"]=[["Slip no.","Month","Issued","Pay by","Tenant","Company","Shop no.","Total","Lines"],...(D.slips||[]).slice().sort((a,b)=>String(a.no).localeCompare(b.no)).map(x=>[x.no,x.month,x.date,x.dueDate,x.tenantName,x.company,x.units,Number(x.total)||0,(x.lines||[]).map(l=>`${l.label}: ${l.amount}`).join("; ")])];
   return t;
 }
 async function uploadPending(limit=3){
@@ -1342,7 +1360,7 @@ function startSync(){paintSync();setInterval(()=>{paintSync();syncNow()},SYNC_EV
 function syncSection(){
   const on=syncCfg&&syncCfg.on;const [k,t]=syncLabel();
   return `<section class="panel" id="sync-panel"><div class="sec-head"><h2>Google Drive and Sheets</h2><span class="syncpill ${k}">${esc(t)}</span></div>
-  <p class="small muted" style="margin:0 0 10px">When this is on, the app saves everything to your own Google Drive and a Google Sheet ${SYNC_EVERY/60000} minutes after each change and every ${SYNC_EVERY/60000} minutes while the internet is on. Your phone and PC then share the same data. Photos and documents go to a Drive folder.</p>
+  <p class="small muted" style="margin:0 0 10px">When this is on, the app saves everything to your own Google Drive and a Google Sheet about 15 seconds after each change and every ${SYNC_EVERY/60000} minutes while the internet is on. Your phone and PC then share the same data. Photos and documents go to a Drive folder.</p>
   ${syncState.status==="error"?`<div class="note bad" style="margin-bottom:10px">${esc(syncState.error)}</div>`:""}
   <div class="field"><label for="sync-key">1. Your sync key</label><div class="row"><code id="sync-key" class="num" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);user-select:all">${esc(syncCfg?.key||"")}</code><button class="btn sm" data-sync-copykey>Copy key</button></div><span class="hint">Paste this into the Apps Script code where it says PASTE-YOUR-KEY-HERE. Use the same key on every device.</span></div>
   <div class="field" style="margin-top:10px"><label for="sync-keyin">Using a second device? Paste the key from your first device here</label><div class="row"><input id="sync-keyin" placeholder="Key from your first device" style="flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)"><button class="btn sm" data-sync-setkey>Use this key</button></div></div>
@@ -1362,6 +1380,279 @@ async function syncConnect(){
   }catch(e){toast("Could not connect: "+(e.message||e))}
 }
 
+/* ---------- PDF writer (offline, no libraries): Helvetica text, lines, boxes, one JPEG logo ---------- */
+const HW=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+const HBW=[278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+const pdfChars=s=>String(s??"").replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/[\u2013\u2014]/g,"-").replace(/\u2026/g,"...").replace(/\u2192/g,"->").replace(/[^\x20-\x7E\u00B7]/g,"");
+function pdfTextWidth(s,size,bold){const W=bold?HBW:HW;let w=0;for(const ch of pdfChars(s)){const c=ch.charCodeAt(0);w+=c>=32&&c<=126?W[c-32]:278}return w*size/1000}
+function pdfFit(s,size,bold,max){s=pdfChars(s);if(pdfTextWidth(s,size,bold)<=max)return s;while(s.length&&pdfTextWidth(s+"...",size,bold)>max)s=s.slice(0,-1);return s+"..."}
+function pdfWrap(s,size,bold,max){const out=[];for(const para of pdfChars(s).split(/\n/)){let line="";for(const w of para.split(/\s+/)){const t=line?line+" "+w:w;if(pdfTextWidth(t,size,bold)>max&&line){out.push(line);line=w}else line=t}out.push(line)}return out}
+const hexRGB=h=>{const n=parseInt(h.replace("#",""),16);return [(n>>16&255)/255,(n>>8&255)/255,(n&255)/255].map(v=>v.toFixed(3)).join(" ")};
+function newPdf(W,H){
+  const pages=[];let cur=null;let logo=null;
+  const Y=y=>(H-y).toFixed(2);
+  const api={W,H,
+    page(){cur=[];pages.push(cur);return api},
+    setLogo(l){logo=l},
+    text(x,y,s,{size=10,bold=false,color="#16211f",align="left"}={}){s=pdfChars(s);if(!s)return;let xx=x;const w=pdfTextWidth(s,size,bold);if(align==="right")xx=x-w;else if(align==="center")xx=x-w/2;
+      const e=s.replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)").replace(/\u00B7/g,"\\267");
+      cur.push(`BT ${hexRGB(color)} rg /${bold?"F2":"F1"} ${size} Tf ${xx.toFixed(2)} ${Y(y)} Td (${e}) Tj ET`)},
+    line(x1,y1,x2,y2,{w=0.6,color="#c9d3d0"}={}){cur.push(`${hexRGB(color)} RG ${w} w ${x1.toFixed(2)} ${Y(y1)} m ${x2.toFixed(2)} ${Y(y2)} l S`)},
+    rect(x,y,w,h,{fill=null,stroke=null,lw=0.6}={}){const p=`${x.toFixed(2)} ${(H-y-h).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re`;
+      if(fill&&stroke)cur.push(`${hexRGB(fill)} rg ${hexRGB(stroke)} RG ${lw} w ${p} B`);else if(fill)cur.push(`${hexRGB(fill)} rg ${p} f`);else cur.push(`${hexRGB(stroke||"#000000")} RG ${lw} w ${p} S`)},
+    image(x,y,w,h){if(!logo)return;cur.push(`q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${(H-y-h).toFixed(2)} cm /Im1 Do Q`)},
+    blob(){
+      const enc=new TextEncoder();const chunks=[];let len=0;const offs=[];
+      const put=x=>{const b=typeof x==="string"?enc.encode(x):x;chunks.push(b);len+=b.length};
+      const nPages=pages.length;const first=5;// 1 catalog, 2 pages, 3 F1, 4 F2, (5 image if any), then page/content pairs
+      const imgObj=logo?5:0;const base=logo?6:5;
+      const obj=(n,body)=>{offs[n]=len;put(`${n} 0 obj\n`);if(typeof body==="function")body();else put(body);put("\nendobj\n")};
+      put("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n".replace(/[\u0080-\u00FF]/g,"a"));
+      obj(1,"<< /Type /Catalog /Pages 2 0 R >>");
+      obj(2,`<< /Type /Pages /Kids [${pages.map((_,i)=>`${base+i*2} 0 R`).join(" ")}] /Count ${nPages} >>`);
+      obj(3,"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+      obj(4,"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+      if(logo)obj(5,()=>{put(`<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logo.bytes.length} >>\nstream\n`);put(logo.bytes);put("\nendstream")});
+      pages.forEach((ops,i)=>{const pn=base+i*2,cn=pn+1;const content=ops.join("\n");const cb=enc.encode(content);
+        obj(pn,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >>${logo?` /XObject << /Im1 ${imgObj} 0 R >>`:""} >> /Contents ${cn} 0 R >>`);
+        obj(cn,()=>{put(`<< /Length ${cb.length} >>\nstream\n`);put(cb);put("\nendstream")})});
+      const total=base+nPages*2;const xref=len;
+      let x=`xref\n0 ${total}\n0000000000 65535 f \n`;for(let i=1;i<total;i++)x+=String(offs[i]||0).padStart(10,"0")+" 00000 n \n";
+      put(x+`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+      return new Blob(chunks,{type:"application/pdf"});
+    }};
+  return api;
+}
+/* the dark Orion logo (for white paper), as JPEG for PDF and PNG bytes for Excel/Word */
+let logoCache=null;
+function logoPngDataUrl(){const i=document.querySelector("img.logo-d");return i?i.src:""}
+async function logoAssets(){
+  if(logoCache)return logoCache;
+  const src=logoPngDataUrl();if(!src)return null;
+  const img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=src});
+  const c=document.createElement("canvas");c.width=img.naturalWidth;c.height=img.naturalHeight;const x=c.getContext("2d");x.fillStyle="#ffffff";x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0);
+  const j=c.toDataURL("image/jpeg",0.92);const b64=s=>Uint8Array.from(atob(s.split(",")[1]),ch=>ch.charCodeAt(0));
+  logoCache={w:c.width,h:c.height,bytes:b64(j),png:b64(src),pngB64:src.split(",")[1]};return logoCache;
+}
+async function pdfWithLogo(W,H){const p=newPdf(W,H);try{p.setLogo(await logoAssets())}catch(e){}return p}
+
+/* ---------- amounts in words (Pakistani style: thousand, lakh, crore) ---------- */
+function inWords(n){
+  n=Math.round(Math.abs(Number(n)||0));if(!n)return "Zero";
+  const a=["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
+  const t=["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+  const two=x=>x<20?a[x]:t[Math.floor(x/10)]+(x%10?" "+a[x%10]:"");
+  const three=x=>(x>=100?a[Math.floor(x/100)]+" Hundred"+(x%100?" ":""):"")+(x%100?two(x%100):"");
+  const parts=[];const cr=Math.floor(n/1e7);n%=1e7;const lk=Math.floor(n/1e5);n%=1e5;const th=Math.floor(n/1e3);n%=1e3;
+  if(cr)parts.push((cr>=100?inWords(cr):two(cr))+" Crore");if(lk)parts.push(two(lk)+" Lakh");if(th)parts.push(two(th)+" Thousand");if(n)parts.push(three(n));
+  return parts.join(" ");
+}
+const fmtMonthLong=ym=>{const [y,m]=ym.split("-").map(Number);return new Date(y,m-1,1).toLocaleDateString("en-GB",{month:"long",year:"numeric"})};
+const numPK=n=>Math.round(Number(n)||0).toLocaleString("en-PK");
+
+/* ---------- advance rent and due day per agreement ---------- */
+function advanceFor(a,ym){const amt=Number(a.advanceAmount)||0;if(!amt||!a.advanceFrom||ym<a.advanceFrom)return 0;let left=amt,m=a.advanceFrom,n=0;
+  while(m<=ym&&n<240&&left>0){const c=Math.min(rentFor(a,m),left);if(m===ym)return c;left-=c;m=ymAdd(m,1);n++}return 0}
+const dueDayOf=a=>Math.min(28,Math.max(1,Number(a&&a.dueDay)||DUE_DAY));
+const dueDateA=(a,ym)=>ym+"-"+pad2(dueDayOf(a));
+
+/* ---------- rent slips ---------- */
+const slipAgs=()=>D.agreements.filter(a=>a.active&&!outlet(a.outletId)?.noRent);
+const slipAgLabel=a=>{const ts=tenantsOf(a.outletId).map(t=>t.name);return `${ts.length?ts.join(", ")+" · ":""}${outlet(a.outletId)?.name||"Outlet"} (${a.unitIds.slice().sort(unitSort).join(" & ")})`};
+function slipDefaults(a,ym,withArrears=true){
+  const o=outlet(a.outletId);const ts=tenantsOf(a.outletId);const lines=[];const M=fmtMonthLong(ym);
+  const rent=rentFor(a,ym),sc=scFor(a,ym),adv=advanceFor(a,ym);
+  lines.push({label:`Rent for the month of ${M}`,amount:rent});
+  if(sc)lines.push({label:`Service charges for the month of ${M}`,amount:sc});
+  else if(a.scMode==="included")lines.push({label:"Service charges (included in rent)",amount:0});
+  if(adv)lines.push({label:"Less: paid in advance",amount:-adv});
+  if(withArrears)agMonths(a).filter(m=>m<ym).forEach(m=>{const r=dueRow(a,m);
+    if(r.rentBal>0)lines.push({label:`Unpaid rent of ${fmtMonthLong(m)}`,amount:r.rentBal});
+    if(r.scBal>0)lines.push({label:`Unpaid service charges of ${fmtMonthLong(m)}`,amount:r.scBal})});
+  return {agreementId:a.id,month:ym,date:todayISO(),tenantName:ts[0]?.name||"",company:o?.name||"",units:a.unitIds.slice().sort(unitSort).join(" & "),
+    dueDate:dueDateA(a,ym),lines,notes:"",showBank:false};
+}
+const slipTotal=s=>(s.lines||[]).reduce((t,l)=>t+(Number(l.amount)||0),0);
+function nextSlipNo(ym){const n=(D.slips||[]).filter(s=>s.month===ym).reduce((m,s)=>Math.max(m,Number(String(s.no||"").split("-").pop())||0),0)+1;return `OT-${ym.replace("-","")}-${String(n).padStart(3,"0")}`}
+function drawSlip(p,s){
+  const W=p.W,H=p.H,L=30,R=W-30,ink="#16211f",gold="#a8742a",mute="#5b6a66",line="#d7dedb";p.page();
+  p.rect(0,0,W,6,{fill:gold});
+  const lw=150,lh=lw*219/534;p.image(L,22,lw,lh);
+  p.text(R,38,"RENT SLIP",{size:17,bold:true,color:ink,align:"right"});
+  p.text(R,54,"Slip no. "+(s.no||""),{size:9,color:mute,align:"right"});
+  p.text(R,66,"Issued "+fmtDate(s.date),{size:9,color:mute,align:"right"});
+  let y=22+lh+16;p.line(L,y,R,y,{w:1,color:gold});y+=20;
+  const kv=(k,v,yy,x=L,w=R-L)=>{p.text(x,yy,k,{size:8,color:mute});p.text(x,yy+13,pdfFit(v||"-",10.5,true,w),{size:10.5,bold:true,color:ink})};
+  const half=(R-L)/2;
+  kv("Tenant name",s.tenantName,y,L,half-10);kv("Company / brand",s.company,y,L+half,half);y+=34;
+  kv("Shop no.",s.units,y,L,half-10);kv("Rent month",fmtMonthLong(s.month),y,L+half,half);y+=34;
+  p.rect(L,y-2,R-L,30,{fill:"#fbf6ec",stroke:"#ead8b5"});p.text(L+10,y+17,"Please pay by",{size:9,color:mute});p.text(R-10,y+17,fmtDate(s.dueDate),{size:12,bold:true,color:"#8a1f1f",align:"right"});y+=44;
+  p.rect(L,y,R-L,20,{fill:"#efe9dd"});p.text(L+8,y+13.5,"Description",{size:9,bold:true,color:ink});p.text(R-8,y+13.5,"Amount (PKR)",{size:9,bold:true,color:ink,align:"right"});y+=20;
+  for(const l of s.lines||[]){const rows=pdfWrap(l.label||"",9.5,false,R-L-120);const h=Math.max(20,rows.length*12+8);
+    rows.forEach((r,i)=>p.text(L+8,y+14+i*12,r,{size:9.5,color:ink}));const v=Number(l.amount)||0;p.text(R-8,y+14,(v<0?"- ":"")+numPK(Math.abs(v)),{size:9.5,color:ink,align:"right"});
+    y+=h;p.line(L,y,R,y,{color:line})}
+  y+=4;p.rect(L,y,R-L,26,{fill:ink});p.text(L+8,y+17,"Total payable",{size:11,bold:true,color:"#ffffff"});p.text(R-8,y+17,"PKR "+numPK(slipTotal(s)),{size:12,bold:true,color:"#ffffff",align:"right"});y+=38;
+  pdfWrap("Rupees "+inWords(slipTotal(s))+" only",9,false,R-L).forEach(r=>{p.text(L,y,r,{size:9,color:mute});y+=12});y+=6;
+  if(s.showBank){const ag=D.agreements.find(x=>x.id===s.agreementId);const acs=(ag?.rentAccountIds||[]).map(i=>D.accounts.find(x=>x.id===i)).filter(Boolean);
+    if(acs.length){p.text(L,y,"Pay to",{size:9,bold:true,color:ink});y+=13;acs.forEach(x=>{pdfWrap(`${acctHolderName(x)} · ${x.bank||""} · ${x.number||""}${x.iban?" · IBAN "+x.iban:""}`,8.5,false,R-L).forEach(r=>{p.text(L,y,r,{size:8.5,color:ink});y+=11})});y+=6}}
+  if(s.notes){pdfWrap(s.notes,9,false,R-L).forEach(r=>{p.text(L,y,r,{size:9,color:ink});y+=12})}
+  const fy=H-58;p.line(R-150,fy,R,fy,{color:mute});p.text(R,fy+12,"Authorised signature",{size:8,color:mute,align:"right"});
+  p.text(L,fy+12,"Orion Tower Management, Bahawalpur",{size:8,color:mute});
+  p.text(L,fy+24,"Rent and service charges are due in advance. Please share the payment slip after paying.",{size:7.5,color:mute});
+  p.rect(0,H-6,W,6,{fill:gold});
+}
+async function slipPdfBlob(list){const p=await pdfWithLogo(419.53,595.28);list.forEach(s=>drawSlip(p,s));return p.blob()}
+async function shareOrSave(blob,name,share){
+  if(share&&navigator.canShare){const f=new File([blob],name,{type:blob.type});if(navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:name});return}catch(e){if(e&&e.name==="AbortError")return}}}
+  saveBlob(blob,name);
+}
+const slipFileName=s=>`Rent-slip-${(s.company||"tenant").replace(/[^A-Za-z0-9]+/g,"-")}-${s.month}.pdf`;
+function slipLineHTML(l={}){return `<div class="phaserow slipline"><input name="ll" placeholder="e.g. Electricity bill" value="${esc(l.label||"")}" aria-label="Description"><input name="la" inputmode="numeric" placeholder="PKR" value="${esc(l.amount??"")}" aria-label="Amount"><button type="button" class="x" data-rm-line aria-label="Remove line">✕</button></div>`}
+function formSlip(slipId,presetAg,presetYM){
+  const ags=slipAgs();if(!ags.length){toast("Add an agreement first, then you can make rent slips.");return}
+  const ex=slipId?(D.slips||[]).find(x=>x.id===slipId):null;
+  let s=ex?JSON.parse(JSON.stringify(ex)):slipDefaults(D.agreements.find(x=>x.id===presetAg)||ags[0],presetYM||curYM());
+  openModal(ex?"Rent slip "+ex.no:"New rent slip",`
+    ${select("agId","Tenant",ags.map(a=>[a.id,slipAgLabel(a)]),s.agreementId)}
+    <div class="grid2">${field("month","Rent month",s.month,{type:"month"})}${field("dueDate","Please pay by",s.dueDate,{type:"date"})}</div>
+    <div class="grid2">${field("tenantName","Tenant name on slip",s.tenantName)}${field("company","Company / brand",s.company)}</div>
+    ${field("units","Shop no.",s.units)}
+    <div class="field"><label>Amounts</label><span class="hint">Filled in from the agreement. Change any amount, or add your own lines (arrears, electricity, fine). Use a minus sign for a deduction.</span>
+      <div id="slines" style="display:flex;flex-direction:column;gap:8px">${s.lines.map(slipLineHTML).join("")}</div>
+      <div class="row"><button type="button" class="btn sm" data-add-line>+ Add line</button><button type="button" class="btn sm link" data-refill>Fill again from agreement</button></div></div>
+    <div class="note info num" id="slip-total"></div>
+    ${area("notes","Note on the slip (optional)",s.notes)}
+    <label class="row small" style="gap:8px"><input type="checkbox" id="slip-bank" ${s.showBank?"checked":""}> Show the bank account(s) for rent on the slip</label>
+    <div class="row" style="margin-top:6px"><button type="button" class="btn" data-slip-share>Share (WhatsApp)</button></div>`,
+  {saveLabel:"Download PDF",onSave:async()=>{const r=await collect();if(typeof r==="string")return r;closeModal();await shareOrSave(await slipPdfBlob([r]),slipFileName(r),false);render();return false},
+   onDelete:ex?()=>confirmBox(`Delete rent slip <b>${esc(ex.no)}</b>?`,"Delete",async()=>{D.slips=D.slips.filter(x=>x.id!==ex.id);await persist();toast("Slip deleted")}):null});
+  const lines=()=>[...document.querySelectorAll("#slines .slipline")].map(r=>({label:r.querySelector('[name="ll"]').value.trim(),amount:r.querySelector('[name="la"]').value.replace(/,/g,"").trim()}));
+  const paintTotal=()=>{const t=lines().reduce((a,l)=>a+(Number(l.amount)||0),0);$("#slip-total").innerHTML=`Total payable <b>${pkr(t)}</b><div class="small muted">Rupees ${esc(inWords(t))} only</div>`};
+  const refill=()=>{const a=D.agreements.find(x=>x.id===fv("agId"));const ym=fv("month")||curYM();if(!a)return;const d=slipDefaults(a,ym);
+    $("#slines").innerHTML=d.lines.map(slipLineHTML).join("");["tenantName","company","units","dueDate"].forEach(k=>$(`#mform [name="${k}"]`).value=d[k]);paintTotal()};
+  async function collect(){
+    const ls=lines().filter(l=>l.label||l.amount);for(const l of ls){if(!l.label)return "Each line needs a description.";if(l.amount===""||isNaN(l.amount))return `Type the amount for “${l.label}”.`;l.amount=Number(l.amount)}
+    if(!ls.length)return "Add at least one line.";const month=fv("month");if(!month)return "Pick the rent month.";
+    const rec={agreementId:fv("agId"),month,dueDate:fv("dueDate"),tenantName:fv("tenantName"),company:fv("company"),units:fv("units"),lines:ls,notes:fv("notes"),showBank:$("#slip-bank").checked,updatedAt:now()};
+    D.slips=D.slips||[];let t;if(ex){t=D.slips.find(x=>x.id===ex.id);Object.assign(t,rec)}else{t={id:uid("slp"),no:nextSlipNo(month),date:todayISO(),total:0,...rec};D.slips.push(t)}
+    t.total=slipTotal(t);await persist();return t}
+  paintTotal();
+  $("#mform").addEventListener("input",e=>{if(e.target.name==="la"||e.target.name==="ll")paintTotal()});
+  $('#mform [name="agId"]').addEventListener("change",refill);$('#mform [name="month"]').addEventListener("change",refill);
+  $("#mform").addEventListener("click",async e=>{
+    if(e.target.closest("[data-add-line]")){$("#slines").insertAdjacentHTML("beforeend",slipLineHTML());$("#slines .slipline:last-child input").focus()}
+    else if(e.target.closest("[data-rm-line]")){e.target.closest(".slipline").remove();paintTotal()}
+    else if(e.target.closest("[data-refill]"))refill();
+    else if(e.target.closest("[data-slip-share]")){const r=await collect();if(typeof r==="string"){$("#merr").textContent=r;return}closeModal();await shareOrSave(await slipPdfBlob([r]),slipFileName(r),true);render()}
+  });
+}
+async function slipsForMonth(ym){
+  const ags=slipAgs().filter(a=>!a.rentStart||ymOf(a.rentStart)<=ym);if(!ags.length){toast("No active agreements with rent for "+fmtYM(ym));return}
+  D.slips=D.slips||[];const list=[];
+  for(const a of ags){let s=D.slips.find(x=>x.agreementId===a.id&&x.month===ym);
+    if(!s){s={id:uid("slp"),no:nextSlipNo(ym),...slipDefaults(a,ym),updatedAt:now()};s.total=slipTotal(s);D.slips.push(s)}list.push(s)}
+  await persist();await shareOrSave(await slipPdfBlob(list),`Rent-slips-${ym}.pdf`,false);render();
+}
+function slipsTab(ym){
+  const ss=(D.slips||[]).slice().sort((a,b)=>b.month.localeCompare(a.month)||String(b.no).localeCompare(a.no));
+  return `<section class="panel"><div class="sec-head"><h2>Rent slips</h2><div class="row"><button class="btn sm" data-act="slips-month" data-ym="${ym}">All slips for ${fmtYM(ym)} (one PDF)</button><button class="btn sm primary" data-act="add-slip">+ Rent slip</button></div></div>
+  <p class="small muted" style="margin:0">Slips already made for a month are reused when you print all slips, so your changes stay.</p></section>
+  <div class="list">${ss.map(s=>`<div class="item" style="cursor:default"><div class="avatar">${esc(initials(s.company))}</div><div class="grow"><div class="t">${esc(s.company)} · ${esc(s.units)}</div><div class="s num">${esc(s.no)} · ${fmtYM(s.month)} · pay by ${fmtDate(s.dueDate)}</div></div><b class="num">${pkr(s.total)}</b>
+    <div class="row" style="flex-wrap:nowrap"><button class="btn sm" data-act="slip-pdf" data-id="${s.id}">PDF</button><button class="btn sm" data-act="edit-slip" data-id="${s.id}">Edit</button></div></div>`).join("")||'<div class="panel empty">No slips yet. Tap “+ Rent slip”, or make all slips for the month in one PDF.</div>'}</div>`;
+}
+
+REPORTS.push(
+ {id:"building",name:"Building covered area",desc:"Covered area of each floor, rate and value",filters:[],build:()=>{const rows=bldRows().map(b=>[b.name,Number(b.area)||0,b.rate==null?"":Number(b.rate),b.rate==null?"":(Number(b.area)||0)*Number(b.rate)]);const pl=bldPlot();if(pl&&pl.area)rows.push(["Plot area (not covered)",Number(pl.area),"",""]);
+   return {cols:["Floor","Covered area (sq ft)","Rate / sq ft","Value"],money:[2,3],rows,sum:[3]}}},
+ {id:"deposits",name:"Security deposits and advance rent",desc:"What each tenant has deposited or paid in advance",filters:["floor"],build:f=>{const rows=D.agreements.filter(a=>a.active&&agFloorMatch(a,f.floor)).map(a=>[outlet(a.outletId)?.name,a.unitIds.join(" + "),tenantsOf(a.outletId).map(t=>t.name).join(", "),Number(a.deposit)||0,a.depositNote||"",Number(a.advanceAmount)||0,a.advanceFrom?fmtYM(a.advanceFrom):""]);
+   return {cols:["Outlet","Units","Tenant(s)","Security deposit","Deposit details","Advance rent","Advance from"],money:[3,5],rows,sum:[3,5]}}});
+/* ---------- report PDF with logo ---------- */
+async function reportPdf(def,cols,rows,money){
+  const p=await pdfWithLogo(841.89,595.28);const W=p.W,H=p.H,L=28,R=W-28,ink="#16211f",gold="#a8742a",mute="#5b6a66";
+  const size=cols.length>9?7:8;const txt=(v,i)=>v==null||v===""?"":money[i]&&typeof v==="number"?numPK(v):typeof v==="number"?numPK(v):String(v);
+  const want=cols.map((c,i)=>Math.max(pdfTextWidth(c,size,true),...rows.slice(0,200).map(r=>pdfTextWidth(txt(r[i],i),size,false)))+10);
+  const tot=want.reduce((a,b)=>a+b,0);const avail=R-L;let ws=want.map(w=>w*Math.min(1,avail/tot));
+  if(tot<avail)ws=want.map(w=>w+(avail-tot)/want.length);
+  let y=0,pageNo=0;const isTotal=r=>r[0]==="Total";
+  const head=()=>{p.page();pageNo++;p.rect(0,0,W,5,{fill:gold});const lw=120,lh=lw*219/534;p.image(L,16,lw,lh);
+    p.text(R,32,def.name,{size:15,bold:true,color:ink,align:"right"});p.text(R,47,"Orion Tower, Bahawalpur · prepared "+fmtDate(todayISO()),{size:8.5,color:mute,align:"right"});
+    y=16+lh+12;p.line(L,y,R,y,{w:1,color:gold});y+=8;
+    p.rect(L,y,R-L,18,{fill:"#efe9dd"});let x=L;cols.forEach((c,i)=>{const t=pdfFit(c,size,true,ws[i]-8);money[i]?p.text(x+ws[i]-4,y+12,t,{size,bold:true,color:ink,align:"right"}):p.text(x+4,y+12,t,{size,bold:true,color:ink});x+=ws[i]});y+=18};
+  const foot=()=>p.text(R,H-16,"Page "+pageNo,{size:7.5,color:mute,align:"right"});
+  head();
+  if(!rows.length)p.text(L,y+16,"Nothing to show for these filters.",{size:9,color:mute});
+  rows.forEach((r,ri)=>{if(y>H-40){foot();head()}const tb=isTotal(r);if(tb)p.rect(L,y,R-L,16,{fill:"#f4f1ea"});else if(ri%2)p.rect(L,y,R-L,16,{fill:"#fafbfa"});
+    let x=L;r.forEach((v,i)=>{const t=pdfFit(txt(v,i),size,tb,ws[i]-8);const right=money[i]||typeof v==="number";right?p.text(x+ws[i]-4,y+11,t,{size,bold:tb,color:ink,align:"right"}):p.text(x+4,y+11,t,{size,bold:tb,color:ink});x+=ws[i]});
+    y+=16;p.line(L,y,R,y,{w:0.4,color:"#e3e8e6"})});
+  foot();return p.blob();
+}
+/* Word file (.docx) with the logo, built offline */
+function makeDocx(title,sub,cols,rows,money,png){
+  const x=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"");
+  const land=cols.length>6;const run=(t,{b=false,sz=20,color=""}={})=>`<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>${b?"<w:b/>":""}${color?`<w:color w:val="${color}"/>`:""}<w:sz w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${x(t)}</w:t></w:r>`;
+  const para=(inner,{jc="",after=80}={})=>`<w:p><w:pPr><w:spacing w:after="${after}"/>${jc?`<w:jc w:val="${jc}"/>`:""}</w:pPr>${inner}</w:p>`;
+  const cell=(t,{b=false,right=false,fill=""}={})=>`<w:tc><w:tcPr>${fill?`<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>`:""}</w:tcPr>${para(run(t,{b,sz:18}),{jc:right?"right":"",after:0})}</w:tc>`;
+  const fmt=v=>typeof v==="number"?v.toLocaleString("en-PK"):v;
+  const tbl=`<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>${["top","left","bottom","right","insideH","insideV"].map(k=>`<w:${k} w:val="single" w:sz="4" w:space="0" w:color="C9C2B4"/>`).join("")}</w:tblBorders><w:tblCellMar><w:left w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tblCellMar></w:tblPr>
+   <w:tr><w:trPr><w:tblHeader/></w:trPr>${cols.map((c,i)=>cell(c,{b:true,right:money[i],fill:"EFE9DD"})).join("")}</w:tr>
+   ${rows.map(r=>{const tot=r[0]==="Total";return `<w:tr>${r.map((v,i)=>cell(fmt(v),{b:tot,right:money[i]||typeof v==="number",fill:tot?"F4F1EA":""})).join("")}</w:tr>`}).join("")}</w:tbl>`;
+  const pic=png?`<w:p><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1714500" cy="703000"/><wp:docPr id="1" name="Orion Tower logo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="logo.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdLogo"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1714500" cy="703000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`:"";
+  const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><w:body>
+   ${pic}${para(run(title,{b:true,sz:32}),{after:40})}${para(run(sub,{sz:18,color:"5B6A66"}),{after:200})}${tbl}${para("",{after:0})}
+   <w:sectPr><w:pgSz w:w="${land?16838:11906}" w:h="${land?11906:16838}"${land?' w:orient="landscape"':""}/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+  const blob=zipStore([
+   ["[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`],
+   ["_rels/.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`],
+   ["word/_rels/document.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${png?'<Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.png"/>':""}</Relationships>`],
+   ["word/document.xml",doc],...(png?[["word/media/logo.png",png]]:[])]);
+  return new Blob([blob],{type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+
+/* ---------- building info (covered area) ---------- */
+const bldRows=()=>(D.building||[]).filter(b=>b.kind!=="plot").sort((a,b)=>(a.order||0)-(b.order||0));
+const bldPlot=()=>(D.building||[]).find(b=>b.kind==="plot");
+function buildingSection(){
+  const rs=bldRows();const tA=rs.reduce((s,b)=>s+(Number(b.area)||0),0),tV=rs.reduce((s,b)=>s+(Number(b.area)||0)*(Number(b.rate)||0),0);const pl=bldPlot();
+  return `<section class="panel"><div class="sec-head"><h2>Building info</h2><button class="btn sm" data-act="edit-building">Edit</button></div>
+  ${rs.length?`<div style="overflow-x:auto"><table class="tbl num"><thead><tr><th>Floor</th><th>Covered area (sq ft)</th><th>Rate / sq ft</th><th>Value</th></tr></thead><tbody>
+  ${rs.map(b=>`<tr><td>${esc(b.name)}</td><td>${numPK(b.area)}</td><td>${b.rate?pkr(b.rate):"—"}</td><td>${b.rate?pkr(b.area*b.rate):"—"}</td></tr>`).join("")}
+  <tr class="total"><td><b>Total covered area</b></td><td><b>${numPK(tA)}</b></td><td></td><td><b>${tV?pkr(tV):""}</b></td></tr></tbody></table></div>
+  <p class="small muted" style="margin:8px 0 0">Plot area: ${pl&&pl.area?numPK(pl.area)+" sq ft":"not set"}. Shop sizes in Units are the sellable area of each unit. Covered area includes corridors, stairs and common areas.</p>`
+  :'<p class="small muted" style="margin:0">Add the covered area of each floor (Lower ground, Ground, Mezzanine, 1st, 2nd, Top) and the plot area.</p>'}</section>`;
+}
+function bldRowHTML(b={}){return `<div class="phaserow bldrow"><input name="bn" placeholder="Floor, e.g. Mezzanine" value="${esc(b.name||"")}" aria-label="Floor"><input name="ba" inputmode="numeric" placeholder="Sq ft" value="${esc(b.area??"")}" aria-label="Covered area"><input name="br" inputmode="numeric" placeholder="Rate / sq ft" value="${esc(b.rate??"")}" aria-label="Rate per sq ft"><button type="button" class="x" data-rm-bld aria-label="Remove">✕</button></div>`}
+function formBuilding(){
+  const rs=bldRows();const pl=bldPlot();
+  openModal("Building info",`${field("plot","Plot area (sq ft)",pl?.area??"",{mode:"numeric"})}
+   <div class="field"><label>Covered area by floor</label><span class="hint">Floor name, covered area in sq ft, and rate per sq ft if you want a value.</span>
+   <div id="bldrows" style="display:flex;flex-direction:column;gap:8px">${(rs.length?rs:[{name:"Lower ground"},{name:"Ground floor"},{name:"Mezzanine"},{name:"1st floor"},{name:"2nd floor"},{name:"Top floor"}]).map(bldRowHTML).join("")}</div>
+   <div><button type="button" class="btn sm" data-add-bld>+ Add floor</button></div></div>`,
+  {onSave:async()=>{
+    const rows=[...document.querySelectorAll("#bldrows .bldrow")].map((r,i)=>({name:r.querySelector('[name="bn"]').value.trim(),area:r.querySelector('[name="ba"]').value.replace(/,/g,"").trim(),rate:r.querySelector('[name="br"]').value.replace(/,/g,"").trim(),order:i})).filter(r=>r.name||r.area);
+    for(const r of rows){if(!r.name)return "Each row needs a floor name.";if(r.area===""||isNaN(r.area))return `Type the covered area for ${r.name}.`;if(r.rate!==""&&isNaN(r.rate))return `The rate for ${r.name} is not a number.`;r.area=Number(r.area);r.rate=r.rate===""?null:Number(r.rate)}
+    const plot=fnum("plot");
+    D.building=rows.map((r,i)=>{const old=bldRows().find(b=>b.name===r.name);return {id:old?.id||uid("bld"),kind:"floor",...r,updatedAt:now()}});
+    D.building.push({id:pl?.id||"bld_plot",kind:"plot",name:"Plot",area:plot==null||isNaN(plot)?null:plot,updatedAt:now()});
+    await persist();toast("Building info saved");closeModal();render();return false}});
+  $("#mform").addEventListener("click",e=>{if(e.target.closest("[data-add-bld]"))$("#bldrows").insertAdjacentHTML("beforeend",bldRowHTML());else if(e.target.closest("[data-rm-bld]"))e.target.closest(".bldrow").remove()});
+}
+
+/* ---------- import a prepared data file (adds and updates, never wipes) ---------- */
+function importForm(){
+  openModal("Import data file",`<p class="small muted" style="margin:0">Use this for a data file Claude prepared for you (for example your old Google Sheet, cleaned). It adds new records and updates matching ones. Nothing else on this device is removed.</p>
+  <div class="field"><label for="f-imp">Data file (.json)</label><input id="f-imp" type="file" accept=".json,application/json"></div>`,
+  {saveLabel:"Check file",onSave:async()=>{
+    const f=$("#f-imp").files[0];if(!f)return "Pick the data file.";let j;try{j=JSON.parse(await f.text())}catch(e){return "That file could not be read."}
+    if(j.app!=="orion-import"||!j.data)return "That is not an Orion Tower import file. To bring back a full backup, use Restore from backup.";
+    const keys=[...COLLS,"units"].filter(k=>Array.isArray(j.data[k])&&j.data[k].length);if(!keys.length)return "The file has no records.";
+    const sum=keys.map(k=>{const ids=new Set((D[k]||[]).map(r=>r.id));const n=j.data[k].filter(r=>!ids.has(r.id)).length;return `<li>${esc(k)}: ${n} new, ${j.data[k].length-n} updated</li>`}).join("");
+    closeModal();
+    confirmBox(`<b>${esc(j.title||"Import")}</b><ul style="margin:8px 0 0;padding-left:18px">${sum}</ul><p class="small muted">Tip: download a backup first, so you can go back if needed.</p>`,"Import now",async()=>{
+      const t=now();for(const k of keys){D[k]=D[k]||[];for(const r of j.data[k]){const i=D[k].findIndex(x=>x.id===r.id);const rec={...r,updatedAt:t};if(i>=0)D[k][i]={...D[k][i],...rec};else D[k].push(rec)}}
+      if(j.trackFrom)D.meta.trackFrom=j.trackFrom;await persist();toast("Import done");route={tab:"home"}});
+    return false}});
+}
+
 /* ---------- backup ---------- */
 function backupText(){return JSON.stringify({app:"orion-tower-manager",exported:now(),data:D},null,1)}
 async function backupFile(){
@@ -1377,7 +1668,7 @@ function restoreForm(){
   {saveLabel:"Restore",onSave:async()=>{
     let txt=fv("paste");const f=$("#f-file").files[0];if(f)txt=await f.text();
     if(!txt)return "Pick a file or paste backup text.";
-    try{const j=JSON.parse(txt);const d=j.data||j;if(!d.units||!Array.isArray(d.units))throw 0;D=d;D.meta=D.meta||{};D.agreements=D.agreements||[];D.payments=D.payments||[];for(const k of ["lifts","petty","cleaning","tasks","docs","staff"])D[k]=D[k]||[];if(j.photos)for(const [k,v] of Object.entries(j.photos))await setPhoto(k,v);if(j.files)for(const [k,v] of Object.entries(j.files))await setFile(k,await (await fetch(v)).blob());await persist(false);toast("Backup restored");route={tab:"home"};return true}
+    try{const j=JSON.parse(txt);const d=j.data||j;if(!d.units||!Array.isArray(d.units))throw 0;D=d;D.meta=D.meta||{};D.agreements=D.agreements||[];D.payments=D.payments||[];for(const k of ["lifts","petty","cleaning","tasks","docs","staff","slips","building"])D[k]=D[k]||[];if(j.photos)for(const [k,v] of Object.entries(j.photos))await setPhoto(k,v);if(j.files)for(const [k,v] of Object.entries(j.files))await setFile(k,await (await fetch(v)).blob());await persist(false);toast("Backup restored");route={tab:"home"};return true}
     catch(e){return "That is not an Orion Tower backup."}
   }});
 }
@@ -1474,6 +1765,12 @@ document.addEventListener("click",async e=>{
     case "add-staff":formStaff();break;case "edit-staff":formStaff(d.id);break;
     case "add-doc":formDoc();break;case "view-doc":viewDoc(d.id);break;
     case "add-pay":formPay(null,d.ag,d.ym);break;
+    case "add-slip":formSlip(null,d.ag,d.ym||moneyYM||curYM());break;
+    case "edit-slip":formSlip(d.id);break;
+    case "slip-pdf":{const x=(D.slips||[]).find(y=>y.id===d.id);if(x)shareOrSave(await slipPdfBlob([x]),slipFileName(x),false);break}
+    case "slips-month":slipsForMonth(d.ym);break;
+    case "edit-building":formBuilding();break;
+    case "import":importForm();break;
     case "view-pay":viewPay(d.id);break;
     case "remind":copyText(reminderText(D.agreements.find(x=>x.id===d.ag),d.ym));break;
     case "set-track":{const v=$("#track-from").value;if(v){D.meta.trackFrom=v;await persist();toast("Tracking starts "+fmtYM(v));render()}break}
