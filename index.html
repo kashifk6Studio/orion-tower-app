@@ -120,7 +120,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .tbl th,.tbl td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
 .tbl th{font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .phaserow{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 36px;gap:6px;align-items:center}
-.slipline{grid-template-columns:1fr 130px 36px}.bldrow{grid-template-columns:1.4fr 1fr 1fr 36px}
+.kv a{color:var(--accent);font-weight:600;text-decoration:none}.slipline{grid-template-columns:1fr 130px 36px}.ctrow{grid-template-columns:1fr 1.2fr 1fr 36px}.bldrow{grid-template-columns:1.4fr 1fr 1fr 36px}
 .phaserow input{padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);min-width:0;width:100%}
 .alert{display:flex;align-items:center;gap:10px;padding:10px 12px;border:0;border-radius:8px;width:100%;text-align:left;cursor:pointer;font-weight:500}
 .alert.bad{background:var(--bad-bg);color:var(--bad)}
@@ -197,7 +197,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   .mobile-brand{display:block!important}
   .two,.grid2{grid-template-columns:1fr}
   .phaserow{grid-template-columns:1fr 1fr}
-  .slipline{grid-template-columns:1fr 100px 32px}.bldrow{grid-template-columns:1fr 1fr 1fr 32px}.bldrow input:first-child{grid-column:1/-1}
+  .slipline{grid-template-columns:1fr 100px 32px}.ctrow{grid-template-columns:1fr 1fr 32px}.ctrow input:nth-child(2){grid-column:1/-1;grid-row:1}.bldrow{grid-template-columns:1fr 1fr 1fr 32px}.bldrow input:first-child{grid-column:1/-1}
   .splitrow{grid-template-columns:1fr 36px}
   .splitrow input[name="sv"]{grid-column:1/2}
   .phaserow [name="pl"]{grid-column:1/-1}
@@ -503,7 +503,7 @@ function viewTenant(id){
   const t=D.tenants.find(x=>x.id===id);if(!t)return '<div class="empty">Tenant not found.</div>';
   return `<div><button class="btn link" data-back="people" data-ptab-back="tenants">← Tenants</button></div>
   <div class="page-head"><div><div class="label">Tenant (outlet owner)</div><h1>${esc(t.name)}</h1></div><button class="btn" data-act="edit-tenant" data-id="${t.id}">Edit</button></div>
-  <section class="panel"><dl class="kv num"><dt>Role</dt><dd>${esc(t.role)||"—"}</dd><dt>Phone / WhatsApp</dt><dd>${esc(t.phone)||"—"}</dd><dt>CNIC</dt><dd>${esc(t.cnic)||"—"}</dd>
+  <section class="panel"><dl class="kv num"><dt>Role</dt><dd>${esc(t.role)||"—"}</dd><dt>Phone / WhatsApp</dt><dd>${t.phone?`<a href="tel:${esc(t.phone.replace(/[^0-9+]/g,""))}">${esc(t.phone)}</a>`:"—"}</dd>${(t.contacts||[]).filter(c=>c.phone||c.name).map(c=>`<dt>${esc(c.label||"Other number")}</dt><dd>${c.name?esc(c.name)+" · ":""}${c.phone?`<a href="tel:${esc(c.phone.replace(/[^0-9+]/g,""))}">${esc(c.phone)}</a>`:""}</dd>`).join("")}<dt>CNIC</dt><dd>${esc(t.cnic)||"—"}</dd>
   <dt>Outlets</dt><dd>${(t.outletIds||[]).map(i=>`<button class="btn sm" data-go-outlet="${i}">${esc(outlet(i)?.name||"?")}</button>`).join(" ")||"—"}</dd><dt>Notes</dt><dd>${esc(t.notes)||"—"}</dd></dl></section>
   ${(()=>{const ags=(t.outletIds||[]).flatMap(i=>agsOfOutlet(i)).filter(a=>a.active);return `<section class="panel"><div class="sec-head"><h2>Security deposit and advance rent</h2></div>${ags.length?`<div style="overflow-x:auto"><table class="tbl num"><thead><tr><th>Agreement</th><th>Security deposit</th><th>Advance rent</th><th></th></tr></thead><tbody>${ags.map(a=>`<tr><td>${esc(agTitle(a))}</td><td>${a.deposit?pkr(a.deposit):"—"}${a.depositNote?`<div class="small muted">${esc(a.depositNote)}</div>`:""}</td><td>${a.advanceAmount?pkr(a.advanceAmount)+`<div class="small muted">from ${fmtYM(a.advanceFrom)}</div>`:"—"}</td><td><button class="btn sm" data-act="edit-ag" data-id="${a.id}">Edit</button></td></tr>`).join("")}</tbody></table></div><p class="small muted" style="margin:8px 0 0">These are kept on the agreement, because one outlet can have several tenants.</p>`:'<p class="small muted" style="margin:0">Add an agreement for this tenant\'s outlet to record the security deposit and advance rent.</p>'}</section>`})()}`;
 }
@@ -613,21 +613,28 @@ function formOutlet(id,presetUnit){
      o.unitIds.forEach(i=>{const u=unit(i);if(!activeOutletOf(i)&&u.status==="Rented")u.status="Vacant"});
      await persist();toast("Outlet deleted");route={tab:"people"};}):null});
 }
+function ctRowHTML(c={}){return `<div class="phaserow ctrow"><input name="cl" placeholder="For, e.g. Accounts" value="${esc(c.label||"")}" aria-label="What this number is for"><input name="cn" placeholder="Name (optional)" value="${esc(c.name||"")}" aria-label="Contact name"><input name="cp" type="tel" placeholder="03xx-xxxxxxx" value="${esc(c.phone||"")}" aria-label="Phone"><button type="button" class="x" data-rm-ct aria-label="Remove number">✕</button></div>`}
+function contactsText(t){return (t.contacts||[]).filter(c=>c.phone).map(c=>`${c.label||"Other"}${c.name?" ("+c.name+")":""}: ${c.phone}`).join("; ")}
 function formTenant(id,presetOutlet){
   const t=id?D.tenants.find(x=>x.id===id):{name:"",phone:"",cnic:"",role:"",notes:"",outletIds:presetOutlet?[presetOutlet]:[]};
   openModal(id?"Edit tenant":"New tenant",`
     ${field("name","Full name",t.name)}
     <div class="grid2">${field("phone","Phone / WhatsApp",t.phone,{type:"tel",ph:"03xx-xxxxxxx"})}${field("cnic","CNIC",t.cnic,{ph:"31202-1234567-1",mode:"numeric"})}</div>
     ${field("role","Role",t.role,{ph:"e.g. Franchise owner, Area manager"})}
+    <div class="field"><label>Other numbers</label><span class="hint">Accounts, admin, manager or any other contact at this tenant.</span>
+      <div id="ctrows" style="display:flex;flex-direction:column;gap:8px">${(t.contacts&&t.contacts.length?t.contacts:[{label:"Accounts"},{label:"Admin"}]).map(ctRowHTML).join("")}</div>
+      <div style="margin-top:8px"><button type="button" class="btn sm" data-add-ct>+ Add number</button></div></div>
     <div class="field"><label>Outlets</label><span class="hint">A tenant can be linked to more than one outlet.</span><div class="chips">${D.outlets.filter(o=>o.active||t.outletIds.includes(o.id)).map(o=>`<button type="button" class="chip" data-chip="outlets" data-val="${o.id}" aria-pressed="${t.outletIds.includes(o.id)}">${esc(o.name)}</button>`).join("")}</div></div>
     ${area("notes","Notes",t.notes)}
     <p class="small muted" style="margin:0">Security deposit and advance rent are entered on the outlet's agreement (Leases tab) and shown on this tenant's page.</p>`,
   {onSave:async()=>{
     const name=fv("name");if(!name)return "Please type the tenant's name.";
-    const rec={name,phone:fv("phone"),cnic:fv("cnic"),role:fv("role"),notes:fv("notes"),outletIds:chipsSel("outlets"),updatedAt:now()};
+    const contacts=[...document.querySelectorAll("#ctrows .ctrow")].map(r=>({label:r.querySelector('[name="cl"]').value.trim(),name:r.querySelector('[name="cn"]').value.trim(),phone:r.querySelector('[name="cp"]').value.trim()})).filter(c=>c.phone||c.name);
+    const rec={name,phone:fv("phone"),cnic:fv("cnic"),role:fv("role"),contacts,notes:fv("notes"),outletIds:chipsSel("outlets"),updatedAt:now()};
     let target;if(id){target=Object.assign(t,rec)}else{target={id:uid("ten"),...rec};D.tenants.push(target)}
     await persist();toast("Tenant saved");closeModal();go({tab:"people",tenant:target.id});return false;},
    onDelete:id?()=>confirmBox(`Delete tenant <b>${esc(t.name)}</b>?`,"Delete",async()=>{D.tenants=D.tenants.filter(x=>x.id!==id);await persist();toast("Tenant deleted");route={tab:"people"}}):null});
+  $("#mform").addEventListener("click",e=>{if(e.target.closest("[data-add-ct]")){$("#ctrows").insertAdjacentHTML("beforeend",ctRowHTML());$("#ctrows .ctrow:last-child input").focus()}else if(e.target.closest("[data-rm-ct]"))e.target.closest(".ctrow").remove()});
 }
 function formAccount(id,presetOwner){
   const a=id?D.accounts.find(x=>x.id===id):{holder:presetOwner?"owner":"orion",ownerId:presetOwner||"",label:"",bank:"",title:"",number:"",notes:""};
@@ -1093,8 +1100,8 @@ const REPORTS=[
    return {cols:["Unit","Owner","Share","Phone","CNIC","Bank accounts"],rows}}},
  {id:"outlets",name:"Outlets and tenants register",desc:"Who runs each outlet and who the tenants are",filters:["floor"],build:f=>{
    const rows=[];D.outlets.filter(o=>f.floor==="all"||o.unitIds.some(u=>unit(u)?.floor===f.floor)).forEach(o=>{const ts=tenantsOf(o.id);const base=[o.name,o.unitIds.slice().sort(unitSort).join(" + "),o.active?"Active":"Closed",o.business];
-     if(!ts.length)rows.push([...base,"","","",""]);else ts.forEach(t=>rows.push([...base,t.name,t.role,t.phone,t.cnic]))});
-   return {cols:["Outlet","Units","Status","Business","Tenant","Role","Phone","CNIC"],rows}}},
+     if(!ts.length)rows.push([...base,"","","","",""]);else ts.forEach(t=>rows.push([...base,t.name,t.role,t.phone,contactsText(t),t.cnic]))});
+   return {cols:["Outlet","Units","Status","Business","Tenant","Role","Phone","Other numbers","CNIC"],rows}}},
  {id:"accounts",name:"Collections by account",desc:"How much went into each account, by month",filters:["range","account"],build:f=>{
    const map={};D.payments.filter(p=>p.month>=f.from&&p.month<=f.to).forEach(p=>(p.splits||[]).forEach(s=>{if(f.account!=="all"&&s.accountId!==f.account)return;const k=s.accountId+"|"+p.month;map[k]=map[k]||{acc:s.accountId,ym:p.month,amt:0,given:0};map[k].amt+=s.amount;if(s.given)map[k].given+=s.amount}));
    const rows=Object.values(map).sort((a,b)=>a.ym.localeCompare(b.ym)).map(x=>{const a=D.accounts.find(y=>y.id===x.acc);return [fmtYM(x.ym),a?acctHolderName(a):"Deleted account",a?`${a.bank} ${a.number}`:"",x.amt,x.given]});
@@ -1683,7 +1690,7 @@ function search(q){
   D.units.forEach(u=>{const o=activeOutletOf(u.id);if(has(u.id,o?.name,u.notes))out.push({k:"Unit",t:u.id+(o?" · "+o.name:""),r:{tab:"units",id:u.id}})});
   D.owners.forEach(o=>{if(has(o.name,o.phone,o.cnic))out.push({k:"Owner",t:o.name,r:{tab:"people",owner:o.id}})});
   D.outlets.forEach(o=>{if(has(o.name,o.business))out.push({k:"Outlet",t:o.name,r:{tab:"people",outlet:o.id}})});
-  D.tenants.forEach(t=>{if(has(t.name,t.phone,t.cnic))out.push({k:"Tenant",t:t.name,r:{tab:"people",tenant:t.id}})});
+  D.tenants.forEach(t=>{if(has(t.name,t.phone,t.cnic,contactsText(t)))out.push({k:"Tenant",t:t.name,r:{tab:"people",tenant:t.id}})});
   D.accounts.forEach(a=>{if(has(a.bank,a.title,a.number,a.label))out.push({k:"Account",t:`${a.bank} · ${a.number} (${acctHolderName(a)})`,r:a.holder==="owner"&&a.ownerId?{tab:"people",owner:a.ownerId}:{tab:"people",ptab:"accounts"}})});
   D.payments.forEach(p=>{const a=D.agreements.find(x=>x.id===p.agreementId);if(has(p.note,p.rentDiscountReason,p.scDiscountReason)||(q.replace(/,/g,"").match(/^\d{3,}$/)&&[p.rentAmount,p.scAmount].some(v=>String(v)===q.replace(/,/g,""))))out.push({k:"Payment",t:`${a?agTitle(a):"Payment"} · ${fmtYM(p.month)} · ${pkr((+p.rentAmount||0)+(+p.scAmount||0))}`,pay:p.id})});
   return out.slice(0,30);
