@@ -310,6 +310,8 @@ async function load(){
   const d=await Store.get("data");
   D=d&&d.units?d:seed();
   D.agreements=D.agreements||[];D.payments=D.payments||[];for(const k of ["lifts","petty","cleaning","tasks","docs","staff","slips","building"])D[k]=D[k]||[];D.meta.trackFrom=D.meta.trackFrom||ymOf(todayISO());
+  D.accounts=D.accounts||[];
+  if(!D.accounts.some(x=>x.id==="acc_cash")){D.accounts.push({id:"acc_cash",holder:"other",ownerId:"",label:"Cash",bank:"Cash in hand",title:"Cash",number:"",notes:"Use this for rent or service charges received in cash.",updatedAt:now()});if(d)await persist(false)}
   if(!d)await persist(false);
   knownIds=allIds();D.deleted=D.deleted||{};
   await loadSyncCfg();
@@ -946,7 +948,7 @@ async function getPhoto(id){if(photoMem[id])return photoMem[id];let v=await Stor
   if(v)photoMem[id]=v;return v}
 async function setPhoto(id,data){photoMem[id]=data;await Store.set("photo:"+id,data)}
 
-function splitRowHTML(s={}){return `<div class="splitrow"><select name="sa" aria-label="Account">${D.accounts.map(x=>`<option value="${x.id}" ${x.id===s.accountId?"selected":""}>${esc(acctHolderName(x))} · ${esc(x.bank||"")} ${esc((x.number||"").slice(-4))}</option>`).join("")}</select><input name="sv" inputmode="numeric" placeholder="Amount PKR" value="${esc(s.amount??"")}" aria-label="Amount"><button type="button" class="x" data-rm-split aria-label="Remove">✕</button>
+function splitRowHTML(s={}){return `<div class="splitrow"><select name="sa" aria-label="Account">${D.accounts.map(x=>`<option value="${x.id}" ${x.id===s.accountId?"selected":""}>${x.id==="acc_cash"?"Cash (received in hand)":`${esc(acctHolderName(x))} · ${esc(x.bank||"")} ${esc((x.number||"").slice(-4))}`}</option>`).join("")}</select><input name="sv" inputmode="numeric" placeholder="Amount PKR" value="${esc(s.amount??"")}" aria-label="Amount"><button type="button" class="x" data-rm-split aria-label="Remove">✕</button>
   <label class="given small" style="grid-column:1/-1"><input type="checkbox" name="sg" ${s.given?"checked":""}> Given to owner on <input type="date" name="sgd" value="${esc(s.givenDate||"")}" style="padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg)"></label></div>`}
 function formPay(id,presetAg,presetYM){
   const ex=id?D.payments.find(x=>x.id===id):null;
