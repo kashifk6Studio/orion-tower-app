@@ -858,6 +858,10 @@ function agMonths(a){
   const to=curYM();const out=[];let m=from;let n=0;while(m<=to&&n<240){out.push(m);m=ymAdd(m,1);n++}
   return out;
 }
+/* months an agreement had rent, including history before tracking started (for reports) */
+function histMonths(a){const ps=D.payments.filter(p=>p.agreementId===a.id).map(p=>p.month).sort();
+  let from=ymOf(a.rentStart||a.agreementDate)||ps[0]||curYM();const to=a.active?curYM():(ps[ps.length-1]||from);
+  const out=[];let m=from,n=0;while(m<=to&&n<240){out.push(m);m=ymAdd(m,1);n++}return out}
 const paysFor=(agId,ym)=>D.payments.filter(p=>p.agreementId===agId&&p.month===ym);
 function dueRow(a,ym){
   const ps=paysFor(a.id,ym);const sum=f=>ps.reduce((s,p)=>s+(Number(p[f])||0),0);
@@ -1065,11 +1069,11 @@ const agFloorMatch=(a,fl)=>fl==="all"||(a.unitIds||[]).some(u=>unit(u)?.floor===
 const monthsRange=(f,t)=>{const o=[];let m=f,n=0;while(m<=t&&n<240){o.push(m);m=ymAdd(m,1);n++}return o};
 const REPORTS=[
  {id:"rent",name:"Monthly rent collection",desc:"Who paid, who did not, how much is pending",filters:["range","floor","outlet"],build:f=>{
-   const rows=[];D.agreements.filter(a=>!outlet(a.outletId)?.noRent&&agFloorMatch(a,f.floor)&&(f.outlet==="all"||a.outletId===f.outlet)).forEach(a=>monthsRange(f.from,f.to).forEach(ym=>{if(!agMonths(a).includes(ym))return;const r=dueRow(a,ym);if(!r.rentDue)return;
+   const rows=[];D.agreements.filter(a=>!outlet(a.outletId)?.noRent&&agFloorMatch(a,f.floor)&&(f.outlet==="all"||a.outletId===f.outlet)).forEach(a=>monthsRange(f.from,f.to).forEach(ym=>{if(!histMonths(a).includes(ym))return;const r=dueRow(a,ym);if(!r.rentDue)return;
      rows.push([fmtYM(ym),outlet(a.outletId)?.name,a.unitIds.join(" + "),r.rentDue,r.rentPaid,r.rentDisc,r.rentAdv,r.rentBal,ST_LABEL[r.rentSt]])}));
    return {cols:["Month","Outlet","Units","Rent due","Received (incl. tax)","Discount","Advance used","Pending","Status"],money:[3,4,5,6,7],rows,sum:[3,4,5,6,7]}}},
  {id:"sc",name:"Service charges collection",desc:"Who paid, who is late, total collected",filters:["range","floor","outlet"],build:f=>{
-   const rows=[];D.agreements.filter(a=>a.scMode==="separate"&&agFloorMatch(a,f.floor)&&(f.outlet==="all"||a.outletId===f.outlet)).forEach(a=>monthsRange(f.from,f.to).forEach(ym=>{if(!agMonths(a).includes(ym))return;const r=dueRow(a,ym);if(!r.scDue)return;
+   const rows=[];D.agreements.filter(a=>a.scMode==="separate"&&agFloorMatch(a,f.floor)&&(f.outlet==="all"||a.outletId===f.outlet)).forEach(a=>monthsRange(f.from,f.to).forEach(ym=>{if(!histMonths(a).includes(ym))return;const r=dueRow(a,ym);if(!r.scDue)return;
      rows.push([fmtYM(ym),outlet(a.outletId)?.name,a.unitIds.join(" + "),r.scDue,r.scPaid,r.scDisc,r.scBal,ST_LABEL[r.scSt]])}));
    return {cols:["Month","Outlet","Units","Service due","Received","Discount","Pending","Status"],money:[3,4,5,6],rows,sum:[3,4,5,6]}}},
  {id:"late",name:"Late list",desc:"Who is late after the 10th, by how many days and how much",filters:[],build:()=>{
