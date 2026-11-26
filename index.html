@@ -692,9 +692,9 @@ function phaseChange(a){
   if(r0!==r1&&(a.phases||[]).length)return {from:r0,to:r1,ym:nx};
   return null;
 }
-function nextRenewalFrom(agDate,since){
-  if(!agDate)return "";let n=1,d=addMonths(agDate,11);
-  while(since&&d<=since&&n<40){n++;d=addMonths(agDate,11*n)}
+function nextRenewalFrom(agDate,since,every){
+  const k=Number(every)===12?12:11;if(!agDate)return "";let n=1,d=addMonths(agDate,k);
+  while(since&&d<=since&&n<40){n++;d=addMonths(agDate,k*n)}
   return d;
 }
 const agTitle=a=>`${outlet(a.outletId)?.name||"Outlet"} · ${(a.unitIds||[]).slice().sort(unitSort).join(" + ")}`;
@@ -703,7 +703,7 @@ function agRow(a){
   const st=renewalState(a);const ym=ymOf(todayISO());
   const ow=(a.ownerIds||[]).map(i=>owner(i)?.name).filter(Boolean);
   return `<button class="item" data-go-ag="${a.id}"><div class="avatar">${esc(initials(outlet(a.outletId)?.name))}</div><div class="grow"><div class="t">${esc(agTitle(a))}</div>
-   <div class="s num">${pkr(rentFor(a,ym))} rent${a.scMode==="separate"?" + "+pkr(a.scAmount)+" service":a.scMode==="included"?" incl. service":""} this month${ow.length?" · with "+esc(ow.join(", ")):""}</div></div>
+   <div class="s num">${rentFor(a,ym)?pkr(rentFor(a,ym))+" rent":"No rent yet (grace period, starts "+fmtDate(a.rentStart)+")"}${a.scMode==="separate"&&scFor(a,ym)?" + "+pkr(a.scAmount)+" service":a.scMode==="included"?" incl. service":""} this month${ow.length?" · with "+esc(ow.join(", ")):""}</div></div>
    ${a.active?rsPill(st):'<span class="pill closed">Ended</span>'}</button>`;
 }
 let agFilter="active";
@@ -759,7 +759,7 @@ function viewAgreement(id){
 function phaseRowHTML(p={}){return `<div class="phaserow"><input name="pl" placeholder="Label, e.g. First 6 months" value="${esc(p.label||"")}" aria-label="Phase label"><input name="pf" type="month" value="${esc(p.from||"")}" aria-label="From month"><input name="pt" type="month" value="${esc(p.to||"")}" aria-label="To month"><input name="pr" inputmode="numeric" placeholder="Rent PKR" value="${esc(p.rent??"")}" aria-label="Rent"><button type="button" class="x" data-rm-phase aria-label="Remove">✕</button></div>`}
 function formAg(id,presetOutlet){
   const ex=id?D.agreements.find(x=>x.id===id):null;
-  const a=ex||{outletId:presetOutlet||"",unitIds:[],ownerIds:[],agreementDate:todayISO(),rentStart:todayISO(),rentHistory:[],phases:[],scMode:"separate",scAmount:"",rentAccountIds:[],scAccountIds:[],deposit:"",depositNote:"",advanceAmount:"",advanceFrom:"",dueDay:10,increasePct:10,nextRenewal:"",taxNote:"",notes:"",active:true};
+  const a=ex||{outletId:presetOutlet||"",unitIds:[],ownerIds:[],agreementDate:todayISO(),rentStart:todayISO(),rentHistory:[],phases:[],scMode:"separate",scAmount:"",rentAccountIds:[],scAccountIds:[],deposit:"",depositNote:"",advanceAmount:"",advanceFrom:"",dueDay:10,increasePct:10,renewMonths:11,scMonthEnd:false,nextRenewal:"",taxNote:"",notes:"",active:true};
   const outs=D.outlets.filter(o=>o.active||o.id===a.outletId);
   const oid=a.outletId||outs.find(o=>!o.noRent)?.id||"";
   const lastH=(a.rentHistory||[]).slice(-1)[0]||{};
@@ -770,11 +770,13 @@ function formAg(id,presetOutlet){
     <div class="grid2">${field("agreementDate","Agreement date",a.agreementDate,{type:"date"})}${field("rentStart","Rent starts from",a.rentStart,{type:"date",hint:"Later than the agreement date means a grace period."})}</div>
     <div class="grid2">${field("rent","Monthly rent (PKR)",lastH.rent??"",{mode:"numeric"})}${field("rentFrom","This rent applies from",lastH.from||a.rentStart,{type:"date",hint:"For an older agreement, the date of its last renewal."})}</div>
     <div class="grid2">${select("scMode","Service charges",[["separate","Separate amount"],["included","Included in rent"],["none","None"]],a.scMode)}<div id="scwrap">${field("scAmount","Service charges (PKR / month)",a.scAmount,{mode:"numeric"})}</div></div>
+    <div id="scwhenwrap">${select("scWhen","When are service charges paid?",[["start","With the rent"],["end","At the end of the month (counts for that month, due by the next month's due day)"]],a.scMonthEnd?"end":"start")}</div>
     <div class="field"><label>Rent phases (optional)</label><span class="hint">A different rent for some months, e.g. a lower rent for the first 6 months. Phases override the normal rent for those months.</span>
       <div id="phases" style="display:flex;flex-direction:column;gap:8px">${(a.phases||[]).map(phaseRowHTML).join("")}</div><div><button type="button" class="btn sm" data-add-phase>+ Add phase</button></div></div>
     <div class="field"><label>Rent goes to which account(s)</label><div class="chips">${acctChips("rentAcc",a.rentAccountIds)}</div></div>
     <div class="field" id="scaccwrap"><label>Service charges go to which account(s)</label><div class="chips">${acctChips("scAcc",a.scAccountIds)}</div></div>
-    <div class="grid2">${field("increasePct","Rent increase at renewal (%)",a.increasePct,{mode:"decimal"})}${field("nextRenewal","Next renewal date",a.nextRenewal,{type:"date",hint:"Filled in for you: agreement date + 11 months."})}</div>
+    <div class="grid2">${field("increasePct","Rent increase at renewal (%)",a.increasePct,{mode:"decimal"})}${select("renewMonths","Renew and increase every",[["11","11 months"],["12","12 months"]],String(a.renewMonths||11))}</div>
+    ${field("nextRenewal","Next renewal date",a.nextRenewal,{type:"date",hint:"Filled in for you from the agreement date. Change it if the real date is different."})}
     <div class="field"><label>Security deposit and advance rent</label></div>
     <div class="grid2">${field("deposit","Security deposit (PKR)",a.deposit,{mode:"numeric",hint:"Refundable amount held by the owner."})}${field("depositNote","Deposit details",a.depositNote,{ph:"e.g. 3 months' rent, received 1 Jan 2026"})}</div>
     <div class="grid2">${field("advanceAmount","Advance rent received (PKR)",a.advanceAmount,{mode:"numeric",hint:"Covers the rent month by month until it is used up, so those months don't show red."})}${field("advanceFrom","Advance covers rent from",a.advanceFrom,{type:"month"})}</div>
@@ -798,8 +800,8 @@ function formAg(id,presetOutlet){
     let history=(ex?.rentHistory||[]).slice();
     if(history.length){history[history.length-1]={...history[history.length-1],from:rentFrom,rent}}else history=[{from:rentFrom,rent}];
     const rec={outletId,unitIds,ownerIds:chipsSel("agowners"),agreementDate,rentStart,rentHistory:history,phases,scMode,scAmount:scMode==="separate"?scAmount:null,
-      rentAccountIds:chipsSel("rentAcc"),scAccountIds:scMode==="separate"?chipsSel("scAcc"):[],deposit:fnum("deposit"),depositNote:fv("depositNote"),advanceAmount,advanceFrom:advanceAmount?fv("advanceFrom"):"",dueDay:dueDay||DUE_DAY,increasePct:inc,
-      nextRenewal:fv("nextRenewal")||nextRenewalFrom(agreementDate,rentFrom),taxNote:fv("taxNote"),notes:fv("notes"),active:fv("active")==="1",updatedAt:now()};
+      rentAccountIds:chipsSel("rentAcc"),scAccountIds:scMode==="separate"?chipsSel("scAcc"):[],deposit:fnum("deposit"),depositNote:fv("depositNote"),advanceAmount,advanceFrom:advanceAmount?fv("advanceFrom"):"",dueDay:dueDay||DUE_DAY,increasePct:inc,renewMonths:Number(fv("renewMonths"))||11,scMonthEnd:scMode==="separate"&&fv("scWhen")==="end",
+      nextRenewal:fv("nextRenewal")||nextRenewalFrom(agreementDate,rentFrom,fv("renewMonths")),taxNote:fv("taxNote"),notes:fv("notes"),active:fv("active")==="1",updatedAt:now()};
     let t;if(ex){t=Object.assign(ex,rec)}else{t={id:uid("agr"),renewals:[],...rec};D.agreements.push(t)}
     await persist();toast("Agreement saved");closeModal();go({tab:"agreements",ag:t.id});return false;},
    onDelete:id?()=>confirmBox(`Delete this agreement for <b>${esc(agTitle(a))}</b>? If it simply finished, set Status to “Ended” instead so the history stays.`,"Delete",async()=>{D.agreements=D.agreements.filter(x=>x.id!==id);await persist();toast("Agreement deleted");route={tab:"agreements"}}):null});
@@ -809,9 +811,9 @@ function formAg(id,presetOutlet){
     const owns=[...new Set((o?.unitIds||[]).flatMap(u=>ownersOf(u).map(x=>x.id)))];
     $("#ag-owners").innerHTML=owns.map(i=>`<button type="button" class="chip" data-chip="agowners" data-val="${i}" aria-pressed="${(a.ownerIds||[]).includes(i)}">${esc(owner(i).name)}</button>`).join("")||'<span class="small muted">No shop owners recorded for these units yet. You can add them later.</span>';
   };
-  const scToggle=()=>{const sep=fv("scMode")==="separate";$("#scwrap").hidden=!sep;$("#scaccwrap").hidden=!sep};
+  const scToggle=()=>{const sep=fv("scMode")==="separate";$("#scwrap").hidden=!sep;$("#scaccwrap").hidden=!sep;$("#scwhenwrap").hidden=!sep};
   let renewTouched=!!ex;
-  const autoRenew=()=>{if(!renewTouched){$('#mform [name="nextRenewal"]').value=nextRenewalFrom(fv("agreementDate"),fv("rentFrom"))}};
+  const autoRenew=()=>{if(!renewTouched){$('#mform [name="nextRenewal"]').value=nextRenewalFrom(fv("agreementDate"),fv("rentFrom"),fv("renewMonths"))}};
   refresh();scToggle();autoRenew();
   $('#mform [name="outletId"]').addEventListener("change",refresh);
   $('#mform [name="scMode"]').addEventListener("change",scToggle);
@@ -830,12 +832,12 @@ function formRenew(id){
     <p style="margin:0">${esc(agTitle(a))}. Renewal date <b>${fmtDate(a.nextRenewal)}</b>. Current rent <b class="num">${pkr(cur)}</b>.</p>
     <div class="grid2">${field("pct","Increase this time (%)",pct,{mode:"decimal"})}${field("newRent","New monthly rent (PKR)",Math.round(cur*(1+pct/100)),{mode:"numeric",hint:"Worked out from the %, change it if you agreed a different figure."})}</div>
     ${field("effFrom","New rent applies from",a.nextRenewal,{type:"date"})}
-    <p class="small muted" style="margin:0">After you confirm, the next renewal is set 11 months later, on <b>${fmtDate(addMonths(a.nextRenewal,11))}</b>.</p>`,
+    <p class="small muted" style="margin:0">After you confirm, the next renewal is set ${a.renewMonths==12?12:11} months later, on <b>${fmtDate(addMonths(a.nextRenewal,a.renewMonths==12?12:11))}</b>.</p>`,
   {saveLabel:"Confirm renewal",onSave:async()=>{
     const p=fnum("pct"),nr=fnum("newRent");if(nr==null||isNaN(nr)||nr<0)return "Type the new monthly rent.";
     const eff=fv("effFrom")||a.nextRenewal;
     a.renewals=a.renewals||[];a.renewals.push({date:a.nextRenewal,doneOn:todayISO(),oldRent:cur,newRent:nr,pct:p??0});
-    a.rentHistory.push({from:eff,rent:nr});a.nextRenewal=addMonths(a.nextRenewal,11);a.updatedAt=now();
+    a.rentHistory.push({from:eff,rent:nr});a.nextRenewal=addMonths(a.nextRenewal,a.renewMonths==12?12:11);a.updatedAt=now();
     await persist();toast("Renewal recorded");return true;}});
   const pi=$('#mform [name="pct"]');pi.addEventListener("input",()=>{const v=Number(pi.value);if(!isNaN(v))$('#mform [name="newRent"]').value=Math.round(cur*(1+v/100))});
 }
@@ -867,7 +869,7 @@ function agMonths(a){
 }
 /* months an agreement had rent, including history before tracking started (for reports) */
 function histMonths(a){const ps=D.payments.filter(p=>p.agreementId===a.id).map(p=>p.month).sort();
-  let from=ymOf(a.rentStart||a.agreementDate)||ps[0]||curYM();const to=a.active?curYM():(ps[ps.length-1]||from);
+  let from=ymOf(a.rentStart||a.agreementDate)||ps[0]||curYM();if(D.meta.histFrom&&from<D.meta.histFrom)from=D.meta.histFrom;const to=a.active?curYM():(ps[ps.length-1]||from);
   const out=[];let m=from,n=0;while(m<=to&&n<240){out.push(m);m=ymAdd(m,1);n++}return out}
 const paysFor=(agId,ym)=>D.payments.filter(p=>p.agreementId===agId&&p.month===ym);
 function dueRow(a,ym){
@@ -877,17 +879,17 @@ function dueRow(a,ym){
   const scPaid=sum("scAmount"),scDisc=sum("scDiscount");
   const rentAdv=advanceFor(a,ym);
   const rentBal=Math.max(0,rentDue-rentPaid-rentDisc-rentAdv),scBal=Math.max(0,scDue-scPaid-scDisc);
-  const late=todayISO()>dueDateA(a,ym);
-  const st=(due,bal,paid)=>due===0?"none":bal<=0?"paid":late?"late":paid>0?"part":"due";
+  const late=todayISO()>dueDateA(a,ym),scLate=todayISO()>scDueDateA(a,ym);
+  const st=(due,bal,paid,lt=late)=>due===0?"none":bal<=0?"paid":lt?"late":paid>0?"part":"due";
   return {a,ym,ps,rentDue,scDue,rentPaid,rentDisc,rentAdv,scPaid,scDisc,rentBal,scBal,late,
-    rentSt:st(rentDue,rentBal,rentPaid+rentDisc+rentAdv),scSt:st(scDue,scBal,scPaid+scDisc),
+    rentSt:st(rentDue,rentBal,rentPaid+rentDisc+rentAdv),scSt:st(scDue,scBal,scPaid+scDisc,scLate),
     over:(rentPaid+rentDisc+rentAdv-rentDue)+(scDue?scPaid+scDisc-scDue:0)};
 }
 function lateItems(){
   const out=[];
   D.agreements.filter(a=>a.active&&!outlet(a.outletId)?.noRent).forEach(a=>agMonths(a).forEach(ym=>{const r=dueRow(a,ym);
     if(r.rentSt==="late")out.push({kind:"Rent",r,bal:r.rentBal,days:daysBetween(dueDateA(r.a,ym),todayISO())});
-    if(r.scSt==="late")out.push({kind:"Service charges",r,bal:r.scBal,days:daysBetween(dueDateA(r.a,ym),todayISO())});
+    if(r.scSt==="late")out.push({kind:"Service charges",r,bal:r.scBal,days:daysBetween(scDueDateA(r.a,ym),todayISO())});
   }));
   return out.sort((x,y)=>y.days-x.days);
 }
@@ -1466,6 +1468,7 @@ function advanceFor(a,ym){const amt=Number(a.advanceAmount)||0;if(!amt||!a.advan
   while(m<=ym&&n<240&&left>0){const c=Math.min(rentFor(a,m),left);if(m===ym)return c;left-=c;m=ymAdd(m,1);n++}return 0}
 const dueDayOf=a=>Math.min(28,Math.max(1,Number(a&&a.dueDay)||DUE_DAY));
 const dueDateA=(a,ym)=>ym+"-"+pad2(dueDayOf(a));
+const scDueDateA=(a,ym)=>a&&a.scMonthEnd?ymAdd(ym,1)+"-"+pad2(dueDayOf(a)):dueDateA(a,ym);
 
 /* ---------- rent slips ---------- */
 const slipAgs=()=>D.agreements.filter(a=>a.active&&!outlet(a.outletId)?.noRent);
@@ -1474,12 +1477,14 @@ function slipDefaults(a,ym,withArrears=true){
   const o=outlet(a.outletId);const ts=tenantsOf(a.outletId);const lines=[];const M=fmtMonthLong(ym);
   const rent=rentFor(a,ym),sc=scFor(a,ym),adv=advanceFor(a,ym);
   lines.push({label:`Rent for the month of ${M}`,amount:rent});
-  if(sc)lines.push({label:`Service charges for the month of ${M}`,amount:sc});
+  const pm=ymAdd(ym,-1);
+  if(sc&&a.scMonthEnd){const b=scFor(a,pm)?dueRow(a,pm).scBal:0;if(b>0)lines.push({label:`Service charges for the month of ${fmtMonthLong(pm)}`,amount:b})}
+  else if(sc)lines.push({label:`Service charges for the month of ${M}`,amount:sc});
   else if(a.scMode==="included")lines.push({label:"Service charges (included in rent)",amount:0});
   if(adv)lines.push({label:"Less: paid in advance",amount:-adv});
   if(withArrears)agMonths(a).filter(m=>m<ym).forEach(m=>{const r=dueRow(a,m);
     if(r.rentBal>0)lines.push({label:`Unpaid rent of ${fmtMonthLong(m)}`,amount:r.rentBal});
-    if(r.scBal>0)lines.push({label:`Unpaid service charges of ${fmtMonthLong(m)}`,amount:r.scBal})});
+    if(r.scBal>0&&!(a.scMonthEnd&&m===pm))lines.push({label:`Unpaid service charges of ${fmtMonthLong(m)}`,amount:r.scBal})});
   return {agreementId:a.id,month:ym,date:todayISO(),tenantName:ts[0]?.name||"",company:o?.name||"",units:a.unitIds.slice().sort(unitSort).join(" & "),
     dueDate:dueDateA(a,ym),lines,notes:"",showBank:false};
 }
@@ -1660,7 +1665,7 @@ function importForm(){
     closeModal();
     confirmBox(`<b>${esc(j.title||"Import")}</b><ul style="margin:8px 0 0;padding-left:18px">${sum}</ul><p class="small muted">Tip: download a backup first, so you can go back if needed.</p>`,"Import now",async()=>{
       const t=now();for(const k of keys){D[k]=D[k]||[];for(const r of j.data[k]){const i=D[k].findIndex(x=>x.id===r.id);const rec={...r,updatedAt:t};if(i>=0)D[k][i]={...D[k][i],...rec};else D[k].push(rec)}}
-      if(j.trackFrom)D.meta.trackFrom=j.trackFrom;await persist();toast("Import done");route={tab:"home"}});
+      if(j.trackFrom)D.meta.trackFrom=j.trackFrom;if(j.histFrom)D.meta.histFrom=j.histFrom;await persist();toast("Import done");route={tab:"home"}});
     return false}});
 }
 
