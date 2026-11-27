@@ -1148,10 +1148,20 @@ const REPORTS=[
    const rows=[];D.outlets.filter(o=>f.floor==="all"||o.unitIds.some(u=>unit(u)?.floor===f.floor)).forEach(o=>{const ts=tenantsOf(o.id);const base=[o.name,o.unitIds.slice().sort(unitSort).join(" + "),o.active?"Active":"Closed",o.business];
      if(!ts.length)rows.push([...base,"","","","",""]);else ts.forEach(t=>rows.push([...base,t.name,t.role,t.phone,contactsText(t),t.cnic]))});
    return {cols:["Outlet","Units","Status","Business","Tenant","Role","Phone","Other numbers","CNIC"],rows}}},
- {id:"accounts",name:"Collections by account",desc:"How much went into each account, by month",filters:["range","account"],build:f=>{
+ {id:"accounts",name:"Collections by account",desc:"How much went into each account, by month. For every transaction, open “Account statement”",filters:["range","account"],build:f=>{
    const map={};D.payments.filter(p=>p.month>=f.from&&p.month<=f.to).forEach(p=>(p.splits||[]).forEach(s=>{if(f.account!=="all"&&s.accountId!==f.account)return;const k=s.accountId+"|"+p.month;map[k]=map[k]||{acc:s.accountId,ym:p.month,amt:0,given:0};map[k].amt+=s.amount;if(s.given)map[k].given+=s.amount}));
    const rows=Object.values(map).sort((a,b)=>a.ym.localeCompare(b.ym)).map(x=>{const a=D.accounts.find(y=>y.id===x.acc);return [fmtYM(x.ym),a?acctHolderName(a):"Deleted account",a?`${a.bank} ${a.number}`:"",x.amt,x.given]});
    return {cols:["Month","Account holder","Bank / number","Received","Given to owner"],money:[3,4],rows,sum:[3,4]}}},
+ {id:"stmt",name:"Account statement",desc:"Every payment into one account: date, shop, tenant, amount, given to owner, and running balance",filters:["range","account"],build:f=>{
+   const rows=[];let bal=0,tin=0,tout=0;
+   const ps=D.payments.filter(p=>p.month>=f.from&&p.month<=f.to).slice().sort((a,b)=>(a.date||a.month).localeCompare(b.date||b.month));
+   ps.forEach(p=>(p.splits||[]).forEach(s=>{if(f.account!=="all"&&s.accountId!==f.account)return;const acc=D.accounts.find(y=>y.id===s.accountId);
+     const amt=Number(s.amount)||0;bal+=amt;tin+=amt;const ten=tenantsOf(p.outletId)[0]?.name||"";
+     const what=[(+p.rentAmount?"Rent "+pkr(+p.rentAmount):""),(+p.scAmount?"Service "+pkr(+p.scAmount):"")].filter(Boolean).join(" + ");
+     rows.push([fmtDate(p.date),fmtYM(p.month),outlet(p.outletId)?.name||"",ten,f.account==="all"?(acc?(acc.id==="acc_cash"?"Cash":acctHolderName(acc)):"Deleted account"):what,amt,"","",bal,p.note||""]);
+     if(s.given){bal-=amt;tout+=amt;const ag=D.agreements.find(y=>y.id===p.agreementId);const own=(ag?.ownerIds||[]).map(i=>owner(i)?.name).filter(Boolean).join(", ");
+       rows.push([fmtDate(s.givenDate||p.date),fmtYM(p.month),outlet(p.outletId)?.name||"","Given to owner",own||"Owner","",amt,s.givenDate?fmtDate(s.givenDate):"",bal,""])}}));
+   return {cols:["Date","For month","Outlet","Tenant / entry",f.account==="all"?"Account":"Payment (rent + service)","Received","Given to owner","Given on","Balance held","Note"],money:[5,6,8],rows,sum:[5,6]}}},
  {id:"disc",name:"Discounts given",desc:"Discounts by month with reasons",filters:["range","outlet"],build:f=>{
    const rows=[];D.payments.filter(p=>p.month>=f.from&&p.month<=f.to&&(f.outlet==="all"||p.outletId===f.outlet)).forEach(p=>{const o=outlet(p.outletId)?.name;
      if(p.rentDiscount)rows.push([fmtYM(p.month),o,"Rent",p.rentDiscount,p.rentDiscountReason]);if(p.scDiscount)rows.push([fmtYM(p.month),o,"Service charges",p.scDiscount,p.scDiscountReason])});
