@@ -681,6 +681,11 @@ function rentFor(a,ym){
 }
 function scFor(a,ym){if(!a||a.scMode!=="separate")return 0;if(a.rentStart&&ym<ymOf(a.rentStart))return 0;return Number(a.scAmount)||0}
 const currentRent=a=>{const h=(a.rentHistory||[]);return h.length?Number(h[h.length-1].rent)||0:0};
+/* rent in force just before a date (ignores increases from that month on) */
+function rentBefore(a,date){const m=ymOf(date);const h=(a.rentHistory||[]).slice().sort((x,y)=>x.from.localeCompare(y.from));const b=h.filter(x=>ymOf(x.from)<m);return Number((b.length?b[b.length-1]:h[0]||{rent:0}).rent)||0}
+/* an increase already recorded on or after the renewal month */
+function renewalSet(a){if(!a.nextRenewal)return null;const m=ymOf(a.nextRenewal);const base=rentBefore(a,a.nextRenewal);return (a.rentHistory||[]).slice().sort((x,y)=>x.from.localeCompare(y.from)).find(x=>ymOf(x.from)>=m&&Number(x.rent)!==base)||null}
+function proposedRent(a){const set=renewalSet(a);if(set)return Number(set.rent)||0;return Math.round(rentBefore(a,a.nextRenewal||todayISO())*(1+(Number(a.increasePct)||0)/100))}
 function renewalState(a){
   if(!a.active||!a.nextRenewal)return {k:"none"};
   const d=daysBetween(todayISO(),a.nextRenewal);
@@ -724,11 +729,12 @@ function viewAgreement(id){
   const sched=[];for(let i=0;i<12;i++){const m=ymAdd(ym,i);sched.push([m,rentFor(a,m),scFor(a,m)])}
   const ow=(a.ownerIds||[]).map(owner).filter(Boolean);
   const accts=ids=>(ids||[]).map(i=>D.accounts.find(x=>x.id===i)).filter(Boolean).map(x=>`<div>${esc(acctHolderName(x))}: ${acctLine(x)}</div>`).join("")||"—";
-  const proposed=Math.round(currentRent(a)*(1+(Number(a.increasePct)||0)/100));
+  const proposed=proposedRent(a);const setR=renewalSet(a);
+  const propTxt=setR?`New rent ${pkr(setR.rent)} from ${fmtDate(setR.from)} is already recorded`:`Proposed new rent at ${esc(a.increasePct)}% increase on ${pkr(rentBefore(a,a.nextRenewal||todayISO()))} is ${pkr(proposed)}`;
   return `<div><button class="btn link" data-back="agreements">← Agreements</button></div>
   <div class="page-head"><div><div class="label">Agreement${a.active?"":" · ended"}</div><h1>${esc(o?.name||"Outlet")} <span class="muted" style="font-weight:500">${esc((a.unitIds||[]).slice().sort(unitSort).join(" + "))}</span></h1></div>
     <div class="row"><button class="btn" data-act="edit-ag" data-id="${a.id}">Edit</button>${a.active?`<button class="btn" data-act="increase" data-id="${a.id}">Rent increase</button>`:""}${a.active&&a.nextRenewal?`<button class="btn primary" data-act="renew" data-id="${a.id}">Renewal done</button>`:""}</div></div>
-  ${st.k==="overdue"?`<div class="note bad">${esc(st.txt)}. Proposed new rent at ${esc(a.increasePct)}% increase is ${pkr(proposed)}. Tap “Renewal done” once it is signed.</div>`:st.k==="soon"?`<div class="note">${esc(st.txt)} (${fmtDate(a.nextRenewal)}). Proposed new rent at ${esc(a.increasePct)}% increase is ${pkr(proposed)}.</div>`:""}
+  ${st.k==="overdue"?`<div class="note bad">${esc(st.txt)}. ${propTxt}. Tap “Renewal done” once it is signed.</div>`:st.k==="soon"?`<div class="note">${esc(st.txt)} (${fmtDate(a.nextRenewal)}). ${propTxt}.</div>`:""}
   ${pc?`<div class="note">Rent phase changes from ${fmtYM(pc.ym)}: ${pkr(pc.from)} becomes ${pkr(pc.to)}.</div>`:""}
   <div class="two">
     <section class="panel"><h2 style="margin-bottom:10px">Terms</h2><dl class="kv num">
@@ -829,12 +835,14 @@ function acctChips(name,sel){
   return D.accounts.map(x=>`<button type="button" class="chip" data-chip="${name}" data-val="${x.id}" aria-pressed="${(sel||[]).includes(x.id)}">${esc(acctHolderName(x))} · ${esc(x.bank||"")} ${esc((x.number||"").slice(-4))}</button>`).join("");
 }
 function formRenew(id,isRenewal=true){
-  const a=D.agreements.find(x=>x.id===id);const cur=currentRent(a);const pct=Number(a.increasePct)||0;const k=a.renewMonths==12?12:11;
-  const defFrom=isRenewal&&a.nextRenewal?a.nextRenewal:ymAdd(curYM(),1)+"-01";
+  const a=D.agreements.find(x=>x.id===id);const pct=Number(a.increasePct)||0;const k=a.renewMonths==12?12:11;
+  const setR=isRenewal?renewalSet(a):null;
+  const defFrom=setR?setR.from:isRenewal&&a.nextRenewal?a.nextRenewal:ymAdd(curYM(),1)+"-01";
+  let cur=rentBefore(a,defFrom);
   openModal(isRenewal?"Renewal done":"Rent increase",`
-    <p style="margin:0">${esc(agTitle(a))}. Rent now <b class="num">${pkr(cur)}</b>${a.nextRenewal?`. Next renewal <b>${fmtDate(a.nextRenewal)}</b>`:""}.</p>
+    <p style="margin:0">${esc(agTitle(a))}. Rent before this change <b class="num" id="curRent">${pkr(cur)}</b>${a.nextRenewal?`. Next renewal <b>${fmtDate(a.nextRenewal)}</b>`:""}.</p>
     <p class="small muted" style="margin:0">Enter the <b>total</b> rent for this shop. If the rent is split (agreement + MOU, or two halves), the increase applies to the total.</p>
-    <div class="grid2">${field("pct","Increase (%)",pct,{mode:"decimal"})}${field("newRent","New monthly rent (PKR)",Math.round(cur*(1+pct/100)),{mode:"numeric",hint:"Worked out from the %. Change it if you agreed a different figure."})}</div>
+    <div class="grid2">${field("pct","Increase (%)",pct,{mode:"decimal"})}${field("newRent","New monthly rent (PKR)",setR?setR.rent:Math.round(cur*(1+pct/100)),{mode:"numeric",hint:"Worked out from the %. Change it if you agreed a different figure."})}</div>
     ${field("effFrom","New rent applies from",defFrom,{type:"date",hint:"The first month of the new rent. Months before this keep the old rent."})}
     ${field("incNote","Note (optional)","",{ph:"e.g. Agreement 143,000 + MOU 110,000"})}
     ${a.nextRenewal?`<label style="display:flex;gap:10px;align-items:flex-start;font-size:14px"><input type="checkbox" name="moveRenew" style="width:20px;height:20px;flex:none;margin-top:2px" ${isRenewal?"checked":""}><span>This is the renewal. Move the next renewal date ${k} months ahead, to <b>${fmtDate(addMonths(a.nextRenewal,k))}</b>.</span></label>`:""}`,
@@ -843,11 +851,14 @@ function formRenew(id,isRenewal=true){
     const eff=fv("effFrom");if(!eff)return "Pick the date the new rent applies from.";
     const mv=$('#mform [name="moveRenew"]')?.checked;
     a.renewals=a.renewals||[];a.renewals.push({date:eff,doneOn:todayISO(),oldRent:cur,newRent:nr,pct:p??(cur?Math.round((nr/cur-1)*1000)/10:0),note:fv("incNote"),renewal:!!mv});
+    cur=rentBefore(a,eff);a.renewals[a.renewals.length-1].oldRent=cur;
     a.rentHistory=(a.rentHistory||[]).filter(h=>ymOf(h.from)!==ymOf(eff));a.rentHistory.push({from:eff,rent:nr});a.rentHistory.sort((x,y)=>x.from.localeCompare(y.from));
+    a.rentHistory=a.rentHistory.filter((h,i,arr)=>!i||Number(h.rent)!==Number(arr[i-1].rent));
     if(mv)a.nextRenewal=addMonths(a.nextRenewal,k);a.updatedAt=now();
     await persist();toast(isRenewal?"Renewal recorded":"New rent saved");return true;}});
   const pi=$('#mform [name="pct"]'),ri=$('#mform [name="newRent"]');
   pi.addEventListener("input",()=>{const v=Number(pi.value);if(!isNaN(v))ri.value=Math.round(cur*(1+v/100))});
+  $('#mform [name="effFrom"]').addEventListener("change",()=>{const e=fv("effFrom");if(!e)return;cur=rentBefore(a,e);$("#curRent").textContent=pkr(cur);const v=Number(pi.value);if(!isNaN(v))ri.value=Math.round(cur*(1+v/100))});
   ri.addEventListener("input",()=>{const v=Number(ri.value.replace(/,/g,""));if(cur&&!isNaN(v))pi.value=Math.round((v/cur-1)*1000)/10});
 }
 function rentHistoryHTML(a){const h=(a.rentHistory||[]).slice().sort((x,y)=>x.from.localeCompare(y.from));if(!h.length)return "";
@@ -1130,7 +1141,7 @@ const REPORTS=[
    return {cols:["Month","Received on","Outlet","Rent received","Tax deducted","Gross rent"],money:[3,4,5],rows,sum:[3,4,5]}}},
  {id:"renew",name:"Renewals due",desc:"Agreements renewing in 30, 60 or 90 days",filters:["days"],build:f=>{
    const rows=D.agreements.filter(a=>a.active&&a.nextRenewal&&daysBetween(todayISO(),a.nextRenewal)<=Number(f.days)).sort((a,b)=>a.nextRenewal.localeCompare(b.nextRenewal)).map(a=>{const d=daysBetween(todayISO(),a.nextRenewal);
-     return [outlet(a.outletId)?.name,a.unitIds.join(" + "),fmtDate(a.nextRenewal),d<0?`${-d} days overdue`:`in ${d} days`,currentRent(a),a.increasePct+"%",Math.round(currentRent(a)*(1+(+a.increasePct||0)/100))]});
+     return [outlet(a.outletId)?.name,a.unitIds.join(" + "),fmtDate(a.nextRenewal),d<0?`${-d} days overdue`:`in ${d} days`,rentBefore(a,a.nextRenewal),a.increasePct+"%",proposedRent(a)]});
    return {cols:["Outlet","Units","Renewal date","When","Current rent","Increase","Proposed rent"],money:[4,6],rows}}},
 ];
 let repState={id:null,f:null,hidden:[]};
