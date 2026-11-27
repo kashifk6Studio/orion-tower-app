@@ -470,7 +470,7 @@ function viewPeople(){
   else if(peopleTab==="outlets"){add=`<button class="btn primary" data-act="add-outlet">+ Outlet</button>`;
     body=D.outlets.slice().sort((a,b)=>(b.active-a.active)||a.name.localeCompare(b.name)).map(o=>`<button class="item" data-go-outlet="${o.id}"><div class="avatar">${esc(initials(o.name))}</div><div class="grow"><div class="t">${esc(o.name)}</div><div class="s">Units ${o.unitIds.slice().sort(unitSort).map(esc).join(" + ")||"none"} · ${tenantsOf(o.id).length} tenant(s)</div></div>${o.noRent?'<span class="pill norent">No rent</span>':""}${o.active?"":'<span class="pill closed">Closed</span>'}</button>`).join("")||'<div class="empty">No outlets yet.</div>';}
   else{add=`<button class="btn primary" data-act="add-tenant">+ Tenant</button>`;
-    body=D.tenants.length?D.tenants.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<button class="item" data-go-tenant="${t.id}"><div class="avatar">${esc(initials(t.name))}</div><div class="grow"><div class="t">${esc(t.name)}</div><div class="s">${(t.outletIds||[]).map(i=>esc(outlet(i)?.name||"?")).join(", ")||"No outlet"}${t.phone?" · "+esc(t.phone):""}</div></div></button>`).join(""):'<div class="empty">No tenants yet. A tenant is the person who takes a shop on rent for an outlet.</div>';}
+    body=D.tenants.length?D.tenants.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<button class="item" data-go-tenant="${t.id}"><div class="avatar">${esc(initials(t.name))}</div><div class="grow"><div class="t">${esc(t.name)}</div><div class="s">${(t.outletIds||[]).map(i=>esc(outlet(i)?.name||"?")).join(", ")||"No outlet"}${t.phone?" · "+esc(t.phone):""}${(t.contacts||[]).filter(c=>c.phone&&c.phone!==t.phone).length?` · +${(t.contacts||[]).filter(c=>c.phone&&c.phone!==t.phone).length} more number(s)`:""}</div></div></button>`).join(""):'<div class="empty">No tenants yet. A tenant is the person who takes a shop on rent for an outlet.</div>';}
   return `<div class="page-head"><div><div class="label">Owners, outlets and tenants</div><h1>People</h1></div>${add}</div>${tabs}<div class="list">${body}</div>`;
 }
 function viewOwner(id){
@@ -496,7 +496,7 @@ function viewOutlet(id){
   <div class="two">
     <section class="panel"><h2 style="margin-bottom:10px">Details</h2><dl class="kv num"><dt>Units</dt><dd>${o.unitIds.slice().sort(unitSort).map(i=>`<button class="btn sm" data-go-unit="${esc(i)}">${esc(i)}</button>`).join(" ")||"—"}</dd><dt>Total area</dt><dd>${area?area.toLocaleString("en-PK")+" sq ft":"—"}</dd><dt>Business</dt><dd>${esc(o.business)||"—"}</dd><dt>Office phone</dt><dd>${esc(o.phone)||"—"}</dd><dt>Notes</dt><dd>${esc(o.notes)||"—"}</dd></dl></section>
     <section class="panel"><div class="sec-head"><h2>Tenants</h2><button class="btn sm" data-act="add-tenant" data-outlet="${o.id}">+ Tenant</button></div>
-      ${ts.length?ts.map(t=>`<button class="item" style="padding:8px 0" data-go-tenant="${t.id}"><div class="avatar">${esc(initials(t.name))}</div><div class="grow"><div class="t">${esc(t.name)}</div><div class="s num">${esc(t.role)||""}${t.role&&t.phone?" · ":""}${esc(t.phone)}</div></div></button>`).join(""):'<div class="muted small">No tenants yet.</div>'}</section>
+      ${ts.length?ts.map(t=>`<button class="item" style="padding:8px 0" data-go-tenant="${t.id}"><div class="avatar">${esc(initials(t.name))}</div><div class="grow"><div class="t">${esc(t.name)}</div><div class="s num">${esc(t.role)||""}${t.role&&t.phone?" · ":""}${esc(t.phone)}${contactsText(t)?`<div>${esc(contactsText(t))}</div>`:""}</div></div></button>`).join(""):'<div class="muted small">No tenants yet.</div>'}</section>
   </div>
   <section class="panel"><div class="sec-head"><h2>Agreements</h2><button class="btn sm" data-act="add-ag" data-outlet="${o.id}">+ Agreement</button></div>
     ${agsOfOutlet(o.id).length?agsOfOutlet(o.id).map(agRow).join(""):`<div class="muted small">${o.noRent?"This outlet pays no rent, so no agreement is needed.":"No agreement yet. Add one to set rent, service charges and renewal."}</div>`}</section>`;
@@ -727,7 +727,7 @@ function viewAgreement(id){
   const proposed=Math.round(currentRent(a)*(1+(Number(a.increasePct)||0)/100));
   return `<div><button class="btn link" data-back="agreements">← Agreements</button></div>
   <div class="page-head"><div><div class="label">Agreement${a.active?"":" · ended"}</div><h1>${esc(o?.name||"Outlet")} <span class="muted" style="font-weight:500">${esc((a.unitIds||[]).slice().sort(unitSort).join(" + "))}</span></h1></div>
-    <div class="row"><button class="btn" data-act="edit-ag" data-id="${a.id}">Edit</button>${a.active&&a.nextRenewal?`<button class="btn primary" data-act="renew" data-id="${a.id}">Renewal done</button>`:""}</div></div>
+    <div class="row"><button class="btn" data-act="edit-ag" data-id="${a.id}">Edit</button>${a.active?`<button class="btn" data-act="increase" data-id="${a.id}">Rent increase</button>`:""}${a.active&&a.nextRenewal?`<button class="btn primary" data-act="renew" data-id="${a.id}">Renewal done</button>`:""}</div></div>
   ${st.k==="overdue"?`<div class="note bad">${esc(st.txt)}. Proposed new rent at ${esc(a.increasePct)}% increase is ${pkr(proposed)}. Tap “Renewal done” once it is signed.</div>`:st.k==="soon"?`<div class="note">${esc(st.txt)} (${fmtDate(a.nextRenewal)}). Proposed new rent at ${esc(a.increasePct)}% increase is ${pkr(proposed)}.</div>`:""}
   ${pc?`<div class="note">Rent phase changes from ${fmtYM(pc.ym)}: ${pkr(pc.from)} becomes ${pkr(pc.to)}.</div>`:""}
   <div class="two">
@@ -747,7 +747,7 @@ function viewAgreement(id){
       <dt>Increase at renewal</dt><dd>${esc(a.increasePct)}% → ${pkr(proposed)}</dd>
       <dt>Rent goes to</dt><dd class="small">${accts(a.rentAccountIds)}</dd>
       <dt>Service charges to</dt><dd class="small">${a.scMode==="separate"?accts(a.scAccountIds):"—"}</dd></dl>
-      ${(a.renewals||[]).length?`<h3 style="margin:14px 0 6px">Renewal history</h3>${a.renewals.map(r=>`<div class="small num">${fmtDate(r.date)}: ${pkr(r.oldRent)} → ${pkr(r.newRent)} (${esc(r.pct)}%)</div>`).join("")}`:""}
+      ${rentHistoryHTML(a)}
     </section>
   </div>
   <section class="panel"><div class="sec-head"><h2>Next 12 months</h2><span class="small muted">What will be due by the 10th</span></div>
@@ -756,7 +756,7 @@ function viewAgreement(id){
       const note=r===0&&a.rentStart&&m<ymOf(a.rentStart)?"Grace period":inPh?(inPh.label||"Rent phase"):(i&&r!==prev?"Rent changes":"");
       return `<tr><td>${fmtYM(m)}</td><td>${pkr(r)}</td>${a.scMode==="separate"?`<td>${pkr(sc)}</td>`:""}<td class="muted">${esc(note)}</td></tr>`}).join("")}
     </tbody></table></div>
-    <p class="small muted" style="margin:8px 0 0">Rent increases at renewal are added when you tap “Renewal done”, so months after the renewal date show the current rent until then.</p></section>`;
+    <p class="small muted" style="margin:8px 0 0">To record a new rent, tap “Rent increase” (any time) or “Renewal done” (at renewal). Months after the renewal date show the current rent until then.</p></section>`;
 }
 function phaseRowHTML(p={}){return `<div class="phaserow"><input name="pl" placeholder="Label, e.g. First 6 months" value="${esc(p.label||"")}" aria-label="Phase label"><input name="pf" type="month" value="${esc(p.from||"")}" aria-label="From month"><input name="pt" type="month" value="${esc(p.to||"")}" aria-label="To month"><input name="pr" inputmode="numeric" placeholder="Rent PKR" value="${esc(p.rent??"")}" aria-label="Rent"><button type="button" class="x" data-rm-phase aria-label="Remove">✕</button></div>`}
 function formAg(id,presetOutlet){
@@ -828,21 +828,32 @@ function acctChips(name,sel){
   if(!D.accounts.length)return '<span class="small muted">No bank accounts yet. Add them under People → Bank accounts, then edit this agreement.</span>';
   return D.accounts.map(x=>`<button type="button" class="chip" data-chip="${name}" data-val="${x.id}" aria-pressed="${(sel||[]).includes(x.id)}">${esc(acctHolderName(x))} · ${esc(x.bank||"")} ${esc((x.number||"").slice(-4))}</button>`).join("");
 }
-function formRenew(id){
-  const a=D.agreements.find(x=>x.id===id);const cur=currentRent(a);const pct=Number(a.increasePct)||0;
-  openModal("Renewal done",`
-    <p style="margin:0">${esc(agTitle(a))}. Renewal date <b>${fmtDate(a.nextRenewal)}</b>. Current rent <b class="num">${pkr(cur)}</b>.</p>
-    <div class="grid2">${field("pct","Increase this time (%)",pct,{mode:"decimal"})}${field("newRent","New monthly rent (PKR)",Math.round(cur*(1+pct/100)),{mode:"numeric",hint:"Worked out from the %, change it if you agreed a different figure."})}</div>
-    ${field("effFrom","New rent applies from",a.nextRenewal,{type:"date"})}
-    <p class="small muted" style="margin:0">After you confirm, the next renewal is set ${a.renewMonths==12?12:11} months later, on <b>${fmtDate(addMonths(a.nextRenewal,a.renewMonths==12?12:11))}</b>.</p>`,
-  {saveLabel:"Confirm renewal",onSave:async()=>{
+function formRenew(id,isRenewal=true){
+  const a=D.agreements.find(x=>x.id===id);const cur=currentRent(a);const pct=Number(a.increasePct)||0;const k=a.renewMonths==12?12:11;
+  const defFrom=isRenewal&&a.nextRenewal?a.nextRenewal:ymAdd(curYM(),1)+"-01";
+  openModal(isRenewal?"Renewal done":"Rent increase",`
+    <p style="margin:0">${esc(agTitle(a))}. Rent now <b class="num">${pkr(cur)}</b>${a.nextRenewal?`. Next renewal <b>${fmtDate(a.nextRenewal)}</b>`:""}.</p>
+    <p class="small muted" style="margin:0">Enter the <b>total</b> rent for this shop. If the rent is split (agreement + MOU, or two halves), the increase applies to the total.</p>
+    <div class="grid2">${field("pct","Increase (%)",pct,{mode:"decimal"})}${field("newRent","New monthly rent (PKR)",Math.round(cur*(1+pct/100)),{mode:"numeric",hint:"Worked out from the %. Change it if you agreed a different figure."})}</div>
+    ${field("effFrom","New rent applies from",defFrom,{type:"date",hint:"The first month of the new rent. Months before this keep the old rent."})}
+    ${field("incNote","Note (optional)","",{ph:"e.g. Agreement 143,000 + MOU 110,000"})}
+    ${a.nextRenewal?`<label style="display:flex;gap:10px;align-items:flex-start;font-size:14px"><input type="checkbox" name="moveRenew" style="width:20px;height:20px;flex:none;margin-top:2px" ${isRenewal?"checked":""}><span>This is the renewal. Move the next renewal date ${k} months ahead, to <b>${fmtDate(addMonths(a.nextRenewal,k))}</b>.</span></label>`:""}`,
+  {saveLabel:isRenewal?"Confirm renewal":"Save new rent",onSave:async()=>{
     const p=fnum("pct"),nr=fnum("newRent");if(nr==null||isNaN(nr)||nr<0)return "Type the new monthly rent.";
-    const eff=fv("effFrom")||a.nextRenewal;
-    a.renewals=a.renewals||[];a.renewals.push({date:a.nextRenewal,doneOn:todayISO(),oldRent:cur,newRent:nr,pct:p??0});
-    a.rentHistory.push({from:eff,rent:nr});a.nextRenewal=addMonths(a.nextRenewal,a.renewMonths==12?12:11);a.updatedAt=now();
-    await persist();toast("Renewal recorded");return true;}});
-  const pi=$('#mform [name="pct"]');pi.addEventListener("input",()=>{const v=Number(pi.value);if(!isNaN(v))$('#mform [name="newRent"]').value=Math.round(cur*(1+v/100))});
+    const eff=fv("effFrom");if(!eff)return "Pick the date the new rent applies from.";
+    const mv=$('#mform [name="moveRenew"]')?.checked;
+    a.renewals=a.renewals||[];a.renewals.push({date:eff,doneOn:todayISO(),oldRent:cur,newRent:nr,pct:p??(cur?Math.round((nr/cur-1)*1000)/10:0),note:fv("incNote"),renewal:!!mv});
+    a.rentHistory=(a.rentHistory||[]).filter(h=>ymOf(h.from)!==ymOf(eff));a.rentHistory.push({from:eff,rent:nr});a.rentHistory.sort((x,y)=>x.from.localeCompare(y.from));
+    if(mv)a.nextRenewal=addMonths(a.nextRenewal,k);a.updatedAt=now();
+    await persist();toast(isRenewal?"Renewal recorded":"New rent saved");return true;}});
+  const pi=$('#mform [name="pct"]'),ri=$('#mform [name="newRent"]');
+  pi.addEventListener("input",()=>{const v=Number(pi.value);if(!isNaN(v))ri.value=Math.round(cur*(1+v/100))});
+  ri.addEventListener("input",()=>{const v=Number(ri.value.replace(/,/g,""));if(cur&&!isNaN(v))pi.value=Math.round((v/cur-1)*1000)/10});
 }
+function rentHistoryHTML(a){const h=(a.rentHistory||[]).slice().sort((x,y)=>x.from.localeCompare(y.from));if(!h.length)return "";
+  return `<h3 style="margin:14px 0 6px">Rent history</h3>${h.map((x,i)=>{const prev=i?Number(h[i-1].rent):0;const r=(a.renewals||[]).find(y=>ymOf(y.date)===ymOf(x.from));
+    const ch=prev?` <span class="muted">(${x.rent>=prev?"+":""}${Math.round((x.rent/prev-1)*1000)/10}% from ${pkr(prev)})</span>`:"";
+    return `<div class="small num">From ${fmtDate(x.from)}: <b>${pkr(x.rent)}</b>${ch}${r&&r.note?` · ${esc(r.note)}`:""}</div>`}).join("")}`}
 function homeAlerts(){
   const out=[];
   const li=lateItems();const byKind=k=>li.filter(x=>x.kind===k);
@@ -1776,6 +1787,7 @@ document.addEventListener("click",async e=>{
     case "add-ag":formAg(null,d.outlet);break;
     case "edit-ag":formAg(d.id);break;
     case "renew":formRenew(d.id);break;
+    case "increase":formRenew(d.id,false);break;
     case "add-lift":formLift();break;case "edit-lift":formLift(d.id);break;
     case "add-petty":formPetty(null,d.type);break;case "edit-petty":formPetty(d.id);break;
     case "add-clean":formClean();break;case "edit-clean":formClean(d.id);break;
