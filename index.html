@@ -314,6 +314,7 @@ async function load(){
   if(!D.accounts.some(x=>x.id==="acc_cash")){D.accounts.push({id:"acc_cash",holder:"other",ownerId:"",label:"Cash",bank:"Cash in hand",title:"Cash",number:"",notes:"Use this for rent or service charges received in cash.",updatedAt:now()});if(d)await persist(false)}
   if(!d)await persist(false);
   knownIds=allIds();D.deleted=D.deleted||{};
+  if(repairLinks())await persist(false);
   await loadSyncCfg();
 }
 async function persist(count=true){
@@ -442,7 +443,7 @@ function viewUnit(id){
       <dt>Sale price</dt><dd>${u.saleRate?pkr(u.saleRate):"—"}</dd>
       <dt>Rent (asking)</dt><dd>${u.rentRate?pkr(u.rentRate)+" per month":"—"}</dd>
       <dt>Service charges</dt><dd>${u.serviceCharges?pkr(u.serviceCharges)+" per month":"—"}</dd>
-      ${activeAgsOfUnit(u.id).map(a=>`<dt>Agreement</dt><dd><button class="btn sm" data-go-ag="${a.id}">${pkr(rentFor(a,ymOf(todayISO())))} this month</button>${a.unitIds.length>1?`<div class="small muted">Covers ${esc(a.unitIds.slice().sort(unitSort).join(" + "))}</div>`:""}</dd>`).join("")}
+      ${activeAgsOfUnit(u.id).map(a=>`<dt>Agreement</dt><dd><button class="btn sm" data-go-ag="${a.id}">${pkr(rentFor(a,ymOf(todayISO())))} this month</button>${(()=>{const ym=ymOf(todayISO());const nx=(a.rentHistory||[]).slice().sort((x,y)=>x.from.localeCompare(y.from)).find(h=>ymOf(h.from)>ym&&Number(h.rent)!==rentFor(a,ym));return nx?`<div class="small muted">${pkr(nx.rent)} from ${fmtYM(ymOf(nx.from))}</div>`:""})()}${a.unitIds.length>1?`<div class="small muted">Covers ${esc(a.unitIds.slice().sort(unitSort).join(" + "))}</div>`:""}</dd>`).join("")}
       <dt>Notes</dt><dd>${esc(u.notes)||"—"}</dd></dl></section>
     <section class="panel"><div class="sec-head"><h2>Outlet</h2>${o?`<button class="btn sm" data-go-outlet="${o.id}">Open</button>`:`<button class="btn sm" data-act="add-outlet" data-unit="${esc(u.id)}">+ Outlet</button>`}</div>
       ${o?`<div class="t" style="font-weight:600">${esc(o.name)}</div><div class="small muted">Units ${o.unitIds.slice().sort(unitSort).map(esc).join(" + ")}</div>
@@ -522,7 +523,7 @@ function viewMore(){
   <section class="panel"><h2 style="margin-bottom:8px">Your data on this device</h2>
     <p class="small muted" style="margin:0 0 10px">Everything is saved inside this app on this device first, so it works without internet. With Google sync on, it is also copied to your Google Drive.</p>
     <dl class="kv num" style="margin-bottom:12px"><dt>Last saved</dt><dd>${D.meta.lastSaved?new Date(D.meta.lastSaved).toLocaleString("en-PK"):"—"}</dd><dt>Payments</dt><dd>${D.payments.length}</dd><dt>Changes made</dt><dd>${D.meta.changes||0}</dd><dt>Storage</dt><dd>${Store.db?(saved?"Saved on this device":"Last save failed"):"Browser storage blocked. Changes will be lost when you close this page."}</dd></dl>
-    <div class="row"><button class="btn primary" data-act="backup-file">Download backup file</button><button class="btn" data-act="backup-copy">Copy backup text</button><button class="btn" data-act="restore">Restore from backup</button><button class="btn" data-act="import">Import data file</button></div>
+    <div class="row"><button class="btn primary" data-act="backup-file">Download backup file</button><button class="btn" data-act="backup-copy">Copy backup text</button><button class="btn" data-act="restore">Restore from backup</button><button class="btn" data-act="import">Import data file</button><button class="btn" data-act="data-check">Check links</button></div>
   </section>
   ${buildingSection()}
   <section class="panel"><h2 style="margin-bottom:8px">Rent tracking starts from</h2><p class="small muted" style="margin:0 0 10px">Months before this are not checked for late rent. Set it to the first month you record payments in this app.</p>
@@ -1407,7 +1408,7 @@ async function syncNow(manual){
   try{
     const pulled=await callScript({action:"pull"});
     const before=JSON.stringify(COLLS.map(k=>D[k]));
-    const merged=mergeData(D,pulled.data);D=merged;knownIds=allIds();
+    const merged=mergeData(D,pulled.data);D=merged;knownIds=allIds();repairLinks();
     await uploadPending();
     const changedLocal=JSON.stringify(COLLS.map(k=>D[k]))!==before;
     const remoteStr=pulled.data?JSON.stringify(COLLS.map(k=>pulled.data[k]||[])):"";
@@ -1725,10 +1726,55 @@ function importForm(){
     closeModal();
     confirmBox(`<b>${esc(j.title||"Import")}</b><ul style="margin:8px 0 0;padding-left:18px">${sum}</ul><p class="small muted">Tip: download a backup first, so you can go back if needed.</p>`,"Import now",async()=>{
       const t=now();for(const k of keys){D[k]=D[k]||[];for(const r of j.data[k]){const i=D[k].findIndex(x=>x.id===r.id);const rec={...r,updatedAt:t};if(i>=0)D[k][i]={...D[k][i],...rec};else D[k].push(rec)}}
-      if(j.trackFrom)D.meta.trackFrom=j.trackFrom;if(j.histFrom)D.meta.histFrom=j.histFrom;await persist();toast("Import done");route={tab:"home"}});
+      repairLinks();if(j.trackFrom)D.meta.trackFrom=j.trackFrom;if(j.histFrom)D.meta.histFrom=j.histFrom;await persist();toast("Import done");route={tab:"home"}});
     return false}});
 }
 
+/* ---------- keep records connected ----------
+   Older installs created the 10 starting outlets with random ids, and the data import added the same
+   outlets again with fixed ids. Merge duplicates (same name) into the one that agreements, tenants and
+   payments point to, and move every reference across. Same for owners, tenants and bank accounts. */
+const normKey=x=>String(x||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+function remapRefs(oldId,newId){let n=0;
+  for(const k of COLLS)for(const r of (D[k]||[])){
+    for(const f of ["outletId","ownerId","agreementId","tenantId","accountId"])if(r[f]===oldId){r[f]=newId;r.updatedAt=now();n++}
+    for(const f of ["outletIds","ownerIds","rentAccountIds","scAccountIds"])if(Array.isArray(r[f])&&r[f].includes(oldId)){r[f]=[...new Set(r[f].map(x=>x===oldId?newId:x))];r.updatedAt=now();n++}
+    if(Array.isArray(r.splits))r.splits.forEach(sp=>{if(sp.accountId===oldId){sp.accountId=newId;r.updatedAt=now();n++}});
+  }return n}
+function refCount(id){let n=0;for(const k of COLLS)for(const r of (D[k]||[])){const js=JSON.stringify(r);if(r.id!==id&&js.includes('"'+id+'"'))n++}return n}
+function mergeDupes(coll,keyFn,mergeFn){let changed=false;const groups={};
+  (D[coll]||[]).forEach(r=>{const k=keyFn(r);if(!k)return;(groups[k]=groups[k]||[]).push(r)});
+  Object.values(groups).filter(g=>g.length>1).forEach(g=>{
+    const sc=g.map(r=>({r,n:refCount(r.id)+(/^(out|own|ten|acc)_[a-z]+$/.test(r.id)?0.5:0)})).sort((a,b)=>b.n-a.n);
+    const keep=sc[0].r;sc.slice(1).forEach(({r})=>{remapRefs(r.id,keep.id);if(mergeFn)mergeFn(keep,r);D[coll]=D[coll].filter(x=>x!==r);changed=true});
+    keep.updatedAt=now()});
+  return changed}
+function repairLinks(){let ch=false;
+  ch=mergeDupes("outlets",o=>normKey(o.name),(k,r)=>{k.unitIds=[...new Set([...(k.unitIds||[]),...(r.unitIds||[])])];if(r.active&&!k.active&&!D.agreements.some(a=>a.outletId===k.id&&!a.active))k.active=true;for(const f of ["business","phone","notes"])if(!k[f]&&r[f])k[f]=r[f]})||ch;
+  ch=mergeDupes("owners",o=>normKey(o.name),(k,r)=>{const u={};[...(k.units||[]),...(r.units||[])].forEach(x=>u[x.unitId]=u[x.unitId]||x);k.units=Object.values(u);for(const f of ["phone","cnic","notes"])if(!k[f]&&r[f])k[f]=r[f]})||ch;
+  ch=mergeDupes("tenants",t=>normKey(t.name)+"|"+normKey(t.cnic),(k,r)=>{k.outletIds=[...new Set([...(k.outletIds||[]),...(r.outletIds||[])])];for(const f of ["phone","cnic","role","notes","company","address","fatherName"])if(!k[f]&&r[f])k[f]=r[f];if(!(k.contacts||[]).length&&(r.contacts||[]).length)k.contacts=r.contacts})||ch;
+  ch=mergeDupes("accounts",a=>a.number?normKey(a.number):"",null)||ch;
+  // a unit can only have one active outlet: if two active outlets share a unit, keep the one with an active agreement
+  (D.units||[]).forEach(u=>{const act=D.outlets.filter(o=>o.active&&(o.unitIds||[]).includes(u.id));if(act.length<2)return;
+    const withAg=act.filter(o=>D.agreements.some(a=>a.active&&a.outletId===o.id));if(withAg.length===1)act.filter(o=>o!==withAg[0]&&!D.agreements.some(a=>a.active&&a.outletId===o.id)&&!D.tenants.some(t=>(t.outletIds||[]).includes(o.id))).forEach(o=>{o.unitIds=o.unitIds.filter(x=>x!==u.id);o.updatedAt=now();if(!o.unitIds.length)o.active=false;ch=true})});
+  return ch}
+function linkIssues(){const out=[];
+  D.outlets.filter(o=>o.active&&!o.noRent).forEach(o=>{
+    if(!D.agreements.some(a=>a.active&&a.outletId===o.id))out.push({t:`${o.name}: active outlet with no active agreement`,go:{tab:"people",outlet:o.id}});
+    if(!tenantsOf(o.id).length)out.push({t:`${o.name}: no tenant linked`,go:{tab:"people",outlet:o.id}})});
+  D.agreements.filter(a=>a.active).forEach(a=>{const o=outlet(a.outletId);
+    if(!o)out.push({t:`Agreement ${agTitle(a)}: outlet missing`,go:{tab:"agreements",ag:a.id}});else if(!o.active)out.push({t:`${agTitle(a)}: agreement is active but the outlet is closed`,go:{tab:"agreements",ag:a.id}});
+    if(!(a.ownerIds||[]).length)out.push({t:`${agTitle(a)}: no shop owner on the agreement`,go:{tab:"agreements",ag:a.id}});
+    if(!(a.rentAccountIds||[]).length)out.push({t:`${agTitle(a)}: no account for rent`,go:{tab:"agreements",ag:a.id}})});
+  D.tenants.filter(t=>!(t.outletIds||[]).length).forEach(t=>out.push({t:`Tenant ${t.name}: not linked to an outlet`,go:{tab:"people",tenant:t.id}}));
+  D.units.filter(u=>u.status==="Rented"&&!activeOutletOf(u.id)).forEach(u=>out.push({t:`Unit ${u.id}: marked Rented but no active outlet`,go:{tab:"units",unit:u.id}}));
+  D.payments.filter(p=>!D.agreements.some(a=>a.id===p.agreementId)).forEach(p=>out.push({t:`Payment ${fmtYM(p.month)}: its agreement was deleted`,go:{tab:"money"}}));
+  return out}
+
+function dataCheck(){const fixed=repairLinks();const done=()=>{const l=linkIssues();
+  const attr=g=>g.unit?`data-go-unit="${esc(g.unit)}"`:g.ag?`data-go-ag="${g.ag}"`:g.outlet?`data-go-outlet="${g.outlet}"`:g.tenant?`data-go-tenant="${g.tenant}"`:`data-goto-tab="${g.tab}"`;
+  openModal("Check links",`<p class="small muted" style="margin:0 0 8px">Checks that every unit, outlet, tenant, agreement, owner, account and payment points to the right record.</p>${l.length?`<div class="alerts">${l.map(x=>`<button class="alert warn" ${attr(x.go)}>${esc(x.t)}</button>`).join("")}</div><p class="small muted">Tap a line to open it and fix it.</p>`:'<div class="empty">All records are connected. Nothing to fix.</div>'}`)};
+  if(fixed)persist(false).then(()=>{render();done();toast("Duplicate records merged")});else done()}
 /* ---------- backup ---------- */
 function backupText(){return JSON.stringify({app:"orion-tower-manager",exported:now(),data:D},null,1)}
 async function backupFile(){
@@ -1790,15 +1836,15 @@ document.addEventListener("click",async e=>{
     if(r===true){closeModal();render()}else if(typeof r==="string"){$("#merr").textContent=r}return}
   if(d.modal==="delete"&&modalState?.onDelete){modalState.onDelete();return}
   if(d.goUnit){closeModal();go({tab:"units",id:d.goUnit});return}
-  if(d.goOwner){go({tab:"people",owner:d.goOwner});return}
-  if(d.goOutlet){go({tab:"people",outlet:d.goOutlet});return}
-  if(d.goTenant){go({tab:"people",tenant:d.goTenant});return}
+  if(d.goOwner){closeModal();go({tab:"people",owner:d.goOwner});return}
+  if(d.goOutlet){closeModal();go({tab:"people",outlet:d.goOutlet});return}
+  if(d.goTenant){closeModal();go({tab:"people",tenant:d.goTenant});return}
   if(d.back){if(d.ptabBack)peopleTab=d.ptabBack;go({tab:d.back});return}
   if(d.ufFloor){unitFilter.floor=d.ufFloor;render();return}
   if(d.ptab){peopleTab=d.ptab;render();return}
   if(d.agf){agFilter=d.agf;render();return}
   if(d.mtab){moneyTab=d.mtab;render();return}
-  if(d.gotoTab){go({tab:d.gotoTab});if(d.gotoTab==="more")setTimeout(()=>$("#sync-panel")?.scrollIntoView({block:"start"}),50);return}
+  if(d.gotoTab){closeModal();go({tab:d.gotoTab});if(d.gotoTab==="more")setTimeout(()=>$("#sync-panel")?.scrollIntoView({block:"start"}),50);return}
   if(d.syncCopykey!==undefined){try{await navigator.clipboard.writeText(syncCfg.key);toast("Key copied")}catch(e){toast("Select the key and copy it")}return}
   if(d.syncSetkey!==undefined){const k=$("#sync-keyin").value.trim();if(k.length<12){toast("That key looks too short");return}syncCfg.key=k;await Store.set("sync",syncCfg);toast("Key saved");render();return}
   if(d.syncConnect!==undefined){syncConnect();return}
@@ -1849,6 +1895,7 @@ document.addEventListener("click",async e=>{
     case "slips-month":slipsForMonth(d.ym);break;
     case "edit-building":formBuilding();break;
     case "import":importForm();break;
+    case "data-check":dataCheck();break;
     case "view-pay":viewPay(d.id);break;
     case "remind":copyText(reminderText(D.agreements.find(x=>x.id===d.ag),d.ym));break;
     case "set-track":{const v=$("#track-from").value;if(v){D.meta.trackFrom=v;await persist();toast("Tracking starts "+fmtYM(v));render()}break}
