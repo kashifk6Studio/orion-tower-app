@@ -470,7 +470,7 @@ function viewPeople(){
   else if(peopleTab==="outlets"){add=`<button class="btn primary" data-act="add-outlet">+ Outlet</button>`;
     body=D.outlets.slice().sort((a,b)=>(b.active-a.active)||a.name.localeCompare(b.name)).map(o=>`<button class="item" data-go-outlet="${o.id}"><div class="avatar">${esc(initials(o.name))}</div><div class="grow"><div class="t">${esc(o.name)}</div><div class="s">Units ${o.unitIds.slice().sort(unitSort).map(esc).join(" + ")||"none"} · ${tenantsOf(o.id).length} tenant(s)</div></div>${o.noRent?'<span class="pill norent">No rent</span>':""}${o.active?"":'<span class="pill closed">Closed</span>'}</button>`).join("")||'<div class="empty">No outlets yet.</div>';}
   else{add=`<button class="btn primary" data-act="add-tenant">+ Tenant</button>`;
-    body=D.tenants.length?D.tenants.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<button class="item" data-go-tenant="${t.id}"><div class="avatar">${esc(initials(t.name))}</div><div class="grow"><div class="t">${esc(t.name)}</div><div class="s">${(t.outletIds||[]).map(i=>esc(outlet(i)?.name||"?")).join(", ")||"No outlet"}${t.phone?" · "+esc(t.phone):""}${(t.contacts||[]).filter(c=>c.phone&&c.phone!==t.phone).length?` · +${(t.contacts||[]).filter(c=>c.phone&&c.phone!==t.phone).length} more number(s)`:""}</div></div></button>`).join(""):'<div class="empty">No tenants yet. A tenant is the person who takes a shop on rent for an outlet.</div>';}
+    body=D.tenants.length?D.tenants.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<button class="item" data-go-tenant="${t.id}"><div class="avatar">${esc(initials(t.name))}</div><div class="grow"><div class="t">${esc(t.name)}${t.company?` <span class="muted" style="font-weight:500">· ${esc(t.company)}</span>`:""}</div><div class="s">${(t.outletIds||[]).map(i=>esc(outlet(i)?.name||"?")).join(", ")||"No outlet"}${t.phone?" · "+esc(t.phone):""}${(t.contacts||[]).filter(c=>c.phone&&c.phone!==t.phone).length?` · +${(t.contacts||[]).filter(c=>c.phone&&c.phone!==t.phone).length} more number(s)`:""}</div></div></button>`).join(""):'<div class="empty">No tenants yet. A tenant is the person who takes a shop on rent for an outlet.</div>';}
   return `<div class="page-head"><div><div class="label">Owners, outlets and tenants</div><h1>People</h1></div>${add}</div>${tabs}<div class="list">${body}</div>`;
 }
 function viewOwner(id){
@@ -504,10 +504,10 @@ function viewOutlet(id){
 function viewTenant(id){
   const t=D.tenants.find(x=>x.id===id);if(!t)return '<div class="empty">Tenant not found.</div>';
   return `<div><button class="btn link" data-back="people" data-ptab-back="tenants">← Tenants</button></div>
-  <div class="page-head"><div><div class="label">Tenant (outlet owner)</div><h1>${esc(t.name)}</h1></div><button class="btn" data-act="edit-tenant" data-id="${t.id}">Edit</button></div>
-  <section class="panel"><dl class="kv num"><dt>Role</dt><dd>${esc(t.role)||"—"}</dd><dt>Phone / WhatsApp</dt><dd>${t.phone?`<a href="tel:${esc(t.phone.replace(/[^0-9+]/g,""))}">${esc(t.phone)}</a>`:"—"}</dd>${(t.contacts||[]).filter(c=>c.phone||c.name).map(c=>`<dt>${esc(c.label||"Other number")}</dt><dd>${c.name?esc(c.name)+" · ":""}${c.phone?`<a href="tel:${esc(c.phone.replace(/[^0-9+]/g,""))}">${esc(c.phone)}</a>`:""}</dd>`).join("")}<dt>CNIC</dt><dd>${esc(t.cnic)||"—"}</dd>
+  <div class="page-head"><div><div class="label">Tenant (outlet owner)</div><h1>${esc(t.name)}</h1>${t.company?`<div class="muted">${esc(t.company)}</div>`:""}</div><button class="btn" data-act="edit-tenant" data-id="${t.id}">Edit</button></div>
+  <section class="panel"><dl class="kv num">${t.company?`<dt>Company</dt><dd>${esc(t.company)}</dd>`:""}${t.fatherName?`<dt>Father's name</dt><dd>${esc(t.fatherName)}</dd>`:""}<dt>Role</dt><dd>${esc(t.role)||"—"}</dd>${t.address?`<dt>Address</dt><dd style="white-space:pre-line">${esc(t.address)}</dd>`:""}<dt>Phone / WhatsApp</dt><dd>${t.phone?`<a href="tel:${esc(t.phone.replace(/[^0-9+]/g,""))}">${esc(t.phone)}</a>`:"—"}</dd>${(t.contacts||[]).filter(c=>c.phone||c.name).map(c=>`<dt>${esc(c.label||"Other number")}</dt><dd>${c.name?esc(c.name)+" · ":""}${c.phone?`<a href="tel:${esc(c.phone.replace(/[^0-9+]/g,""))}">${esc(c.phone)}</a>`:""}</dd>`).join("")}<dt>CNIC</dt><dd>${esc(t.cnic)||"—"}</dd>
   <dt>Outlets</dt><dd>${(t.outletIds||[]).map(i=>`<button class="btn sm" data-go-outlet="${i}">${esc(outlet(i)?.name||"?")}</button>`).join(" ")||"—"}</dd><dt>Notes</dt><dd>${esc(t.notes)||"—"}</dd></dl></section>
-  ${(()=>{const ags=(t.outletIds||[]).flatMap(i=>agsOfOutlet(i)).filter(a=>a.active);return `<section class="panel"><div class="sec-head"><h2>Security deposit and advance rent</h2></div>${ags.length?`<div style="overflow-x:auto"><table class="tbl num"><thead><tr><th>Agreement</th><th>Security deposit</th><th>Advance rent</th><th></th></tr></thead><tbody>${ags.map(a=>`<tr><td>${esc(agTitle(a))}</td><td>${a.deposit?pkr(a.deposit):"—"}${a.depositNote?`<div class="small muted">${esc(a.depositNote)}</div>`:""}</td><td>${a.advanceAmount?pkr(a.advanceAmount)+`<div class="small muted">from ${fmtYM(a.advanceFrom)}</div>`:"—"}</td><td><button class="btn sm" data-act="edit-ag" data-id="${a.id}">Edit</button></td></tr>`).join("")}</tbody></table></div><p class="small muted" style="margin:8px 0 0">These are kept on the agreement, because one outlet can have several tenants.</p>`:'<p class="small muted" style="margin:0">Add an agreement for this tenant\'s outlet to record the security deposit and advance rent.</p>'}</section>`})()}`;
+  ${(()=>{const ags=(t.outletIds||[]).flatMap(i=>agsOfOutlet(i)).filter(a=>a.active);return `<section class="panel"><div class="sec-head"><h2>Security deposit and advance rent</h2></div>${ags.length?`<div style="overflow-x:auto"><table class="tbl num"><thead><tr><th>Agreement</th><th>Security deposit</th><th>Advance rent</th><th></th></tr></thead><tbody>${ags.map(a=>`<tr><td>${esc(agTitle(a))}${a.agreementType?`<div class="small muted">${esc(a.agreementType)}</div>`:""}${docLinksHTML(a)}</td><td>${a.deposit?pkr(a.deposit):"—"}${a.depositNote?`<div class="small muted">${esc(a.depositNote)}</div>`:""}</td><td>${a.advanceAmount?pkr(a.advanceAmount)+`<div class="small muted">from ${fmtYM(a.advanceFrom)}</div>`:"—"}</td><td><button class="btn sm" data-act="edit-ag" data-id="${a.id}">Edit</button></td></tr>`).join("")}</tbody></table></div><p class="small muted" style="margin:8px 0 0">These are kept on the agreement, because one outlet can have several tenants.</p>`:'<p class="small muted" style="margin:0">Add an agreement for this tenant\'s outlet to record the security deposit and advance rent.</p>'}</section>`})()}`;
 }
 function accountsBody(){
   const groups=[["orion","Orion Tower accounts"],["owner","Shop owner accounts"],["other","Other accounts"]];
@@ -616,11 +616,14 @@ function formOutlet(id,presetUnit){
      await persist();toast("Outlet deleted");route={tab:"people"};}):null});
 }
 function ctRowHTML(c={}){return `<div class="phaserow ctrow"><input name="cl" placeholder="For, e.g. Accounts" value="${esc(c.label||"")}" aria-label="What this number is for"><input name="cn" placeholder="Name (optional)" value="${esc(c.name||"")}" aria-label="Contact name"><input name="cp" type="tel" placeholder="03xx-xxxxxxx" value="${esc(c.phone||"")}" aria-label="Phone"><button type="button" class="x" data-rm-ct aria-label="Remove number">✕</button></div>`}
+function docLinksHTML(a){return (a.docLinks||[]).filter(d=>/^https:\/\//.test(d.url||"")).map(d=>`<div class="small"><a href="${esc(d.url)}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600">📄 ${esc(d.label||"Agreement")}</a></div>`).join("")}
 function contactsText(t){return (t.contacts||[]).filter(c=>c.phone).map(c=>`${c.label||"Other"}${c.name?" ("+c.name+")":""}: ${c.phone}`).join("; ")}
 function formTenant(id,presetOutlet){
   const t=id?D.tenants.find(x=>x.id===id):{name:"",phone:"",cnic:"",role:"",notes:"",outletIds:presetOutlet?[presetOutlet]:[]};
   openModal(id?"Edit tenant":"New tenant",`
-    ${field("name","Full name",t.name)}
+    <div class="grid2">${field("name","Full name",t.name)}${field("fatherName","Father's name (S/O)",t.fatherName||"")}</div>
+    ${field("company","Company / brand (signs on behalf of)",t.company||"",{ph:"e.g. Arif Habib Limited"})}
+    ${area("address","Address",t.address||"")}
     <div class="grid2">${field("phone","Phone / WhatsApp",t.phone,{type:"tel",ph:"03xx-xxxxxxx"})}${field("cnic","CNIC",t.cnic,{ph:"31202-1234567-1",mode:"numeric"})}</div>
     ${field("role","Role",t.role,{ph:"e.g. Franchise owner, Area manager"})}
     <div class="field"><label>Other numbers</label><span class="hint">Accounts, admin, manager or any other contact at this tenant.</span>
@@ -632,7 +635,7 @@ function formTenant(id,presetOutlet){
   {onSave:async()=>{
     const name=fv("name");if(!name)return "Please type the tenant's name.";
     const contacts=[...document.querySelectorAll("#ctrows .ctrow")].map(r=>({label:r.querySelector('[name="cl"]').value.trim(),name:r.querySelector('[name="cn"]').value.trim(),phone:r.querySelector('[name="cp"]').value.trim()})).filter(c=>c.phone||c.name);
-    const rec={name,phone:fv("phone"),cnic:fv("cnic"),role:fv("role"),contacts,notes:fv("notes"),outletIds:chipsSel("outlets"),updatedAt:now()};
+    const rec={name,fatherName:fv("fatherName"),company:fv("company"),address:fv("address"),phone:fv("phone"),cnic:fv("cnic"),role:fv("role"),contacts,notes:fv("notes"),outletIds:chipsSel("outlets"),updatedAt:now()};
     let target;if(id){target=Object.assign(t,rec)}else{target={id:uid("ten"),...rec};D.tenants.push(target)}
     await persist();toast("Tenant saved");closeModal();go({tab:"people",tenant:target.id});return false;},
    onDelete:id?()=>confirmBox(`Delete tenant <b>${esc(t.name)}</b>?`,"Delete",async()=>{D.tenants=D.tenants.filter(x=>x.id!==id);await persist();toast("Tenant deleted");route={tab:"people"}}):null});
@@ -745,6 +748,8 @@ function viewAgreement(id){
       <dt>Due date</dt><dd>${dueDayOf(a)}th of each month, in advance</dd>
       <dt>Security deposit</dt><dd>${a.deposit?pkr(a.deposit):"—"}${a.depositNote?`<div class="small muted">${esc(a.depositNote)}</div>`:""}</dd>
       <dt>Advance rent</dt><dd>${a.advanceAmount?pkr(a.advanceAmount)+" from "+fmtYM(a.advanceFrom):"—"}${a.advanceAmount?`<div class="small muted">Covers the rent from ${fmtYM(a.advanceFrom)} until it is used up</div>`:""}</dd>
+      ${a.agreementType?`<dt>Agreement type</dt><dd>${esc(a.agreementType)}</dd>`:""}
+      ${(a.docLinks||[]).length?`<dt>Signed copies</dt><dd>${docLinksHTML(a)}</dd>`:""}
       <dt>Tax by tenant</dt><dd>${esc(a.taxNote)||"—"}</dd>
       <dt>With owner(s)</dt><dd>${ow.length?ow.map(x=>`<button class="btn sm" data-go-owner="${x.id}">${esc(x.name)}</button>`).join(" "):"—"}</dd>
       <dt>Notes</dt><dd>${esc(a.notes)||"—"}</dd></dl></section>
@@ -1146,8 +1151,8 @@ const REPORTS=[
    return {cols:["Unit","Owner","Share","Phone","CNIC","Bank accounts"],rows}}},
  {id:"outlets",name:"Outlets and tenants register",desc:"Who runs each outlet and who the tenants are",filters:["floor"],build:f=>{
    const rows=[];D.outlets.filter(o=>f.floor==="all"||o.unitIds.some(u=>unit(u)?.floor===f.floor)).forEach(o=>{const ts=tenantsOf(o.id);const base=[o.name,o.unitIds.slice().sort(unitSort).join(" + "),o.active?"Active":"Closed",o.business];
-     if(!ts.length)rows.push([...base,"","","","",""]);else ts.forEach(t=>rows.push([...base,t.name,t.role,t.phone,contactsText(t),t.cnic]))});
-   return {cols:["Outlet","Units","Status","Business","Tenant","Role","Phone","Other numbers","CNIC"],rows}}},
+     if(!ts.length)rows.push([...base,"","","","","","",""]);else ts.forEach(t=>rows.push([...base,t.name,t.company||"",t.role,t.phone,contactsText(t),t.cnic,t.address||""]))});
+   return {cols:["Outlet","Units","Status","Business","Tenant","Company","Role","Phone","Other numbers","CNIC","Address"],rows}}},
  {id:"accounts",name:"Collections by account",desc:"How much went into each account, by month. For every transaction, open “Account statement”",filters:["range","account"],build:f=>{
    const map={};D.payments.filter(p=>p.month>=f.from&&p.month<=f.to).forEach(p=>(p.splits||[]).forEach(s=>{if(f.account!=="all"&&s.accountId!==f.account)return;const k=s.accountId+"|"+p.month;map[k]=map[k]||{acc:s.accountId,ym:p.month,amt:0,given:0};map[k].amt+=s.amount;if(s.given)map[k].given+=s.amount}));
    const rows=Object.values(map).sort((a,b)=>a.ym.localeCompare(b.ym)).map(x=>{const a=D.accounts.find(y=>y.id===x.acc);return [fmtYM(x.ym),a?acctHolderName(a):"Deleted account",a?`${a.bank} ${a.number}`:"",x.amt,x.given]});
@@ -1714,7 +1719,8 @@ function importForm(){
   {saveLabel:"Check file",onSave:async()=>{
     const f=$("#f-imp").files[0];if(!f)return "Pick the data file.";let j;try{j=JSON.parse(await f.text())}catch(e){return "That file could not be read."}
     if(j.app!=="orion-import"||!j.data)return "That is not an Orion Tower import file. To bring back a full backup, use Restore from backup.";
-    const keys=[...COLLS,"units"].filter(k=>Array.isArray(j.data[k])&&j.data[k].length);if(!keys.length)return "The file has no records.";
+    if(j.updateOnly)for(const k of Object.keys(j.data)){if(Array.isArray(j.data[k])){const ids=new Set((D[k]||[]).map(r=>r.id));j.data[k]=j.data[k].filter(r=>ids.has(r.id))}}
+    const keys=[...COLLS,"units"].filter(k=>Array.isArray(j.data[k])&&j.data[k].length);if(!keys.length)return j.updateOnly?"Nothing to update: these records are not on this device yet. Import the main data file first.":"The file has no records.";
     const sum=keys.map(k=>{const ids=new Set((D[k]||[]).map(r=>r.id));const n=j.data[k].filter(r=>!ids.has(r.id)).length;return `<li>${esc(k)}: ${n} new, ${j.data[k].length-n} updated</li>`}).join("");
     closeModal();
     confirmBox(`<b>${esc(j.title||"Import")}</b><ul style="margin:8px 0 0;padding-left:18px">${sum}</ul><p class="small muted">Tip: download a backup first, so you can go back if needed.</p>`,"Import now",async()=>{
@@ -1749,7 +1755,7 @@ function search(q){
   D.units.forEach(u=>{const o=activeOutletOf(u.id);if(has(u.id,o?.name,u.notes))out.push({k:"Unit",t:u.id+(o?" · "+o.name:""),r:{tab:"units",id:u.id}})});
   D.owners.forEach(o=>{if(has(o.name,o.phone,o.cnic))out.push({k:"Owner",t:o.name,r:{tab:"people",owner:o.id}})});
   D.outlets.forEach(o=>{if(has(o.name,o.business))out.push({k:"Outlet",t:o.name,r:{tab:"people",outlet:o.id}})});
-  D.tenants.forEach(t=>{if(has(t.name,t.phone,t.cnic,contactsText(t)))out.push({k:"Tenant",t:t.name,r:{tab:"people",tenant:t.id}})});
+  D.tenants.forEach(t=>{if(has(t.name,t.company,t.phone,t.cnic,contactsText(t)))out.push({k:"Tenant",t:t.name,r:{tab:"people",tenant:t.id}})});
   D.accounts.forEach(a=>{if(has(a.bank,a.title,a.number,a.label))out.push({k:"Account",t:`${a.bank} · ${a.number} (${acctHolderName(a)})`,r:a.holder==="owner"&&a.ownerId?{tab:"people",owner:a.ownerId}:{tab:"people",ptab:"accounts"}})});
   D.payments.forEach(p=>{const a=D.agreements.find(x=>x.id===p.agreementId);if(has(p.note,p.rentDiscountReason,p.scDiscountReason)||(q.replace(/,/g,"").match(/^\d{3,}$/)&&[p.rentAmount,p.scAmount].some(v=>String(v)===q.replace(/,/g,""))))out.push({k:"Payment",t:`${a?agTitle(a):"Payment"} · ${fmtYM(p.month)} · ${pkr((+p.rentAmount||0)+(+p.scAmount||0))}`,pay:p.id})});
   return out.slice(0,30);
